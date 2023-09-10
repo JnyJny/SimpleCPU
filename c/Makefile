@@ -1,7 +1,7 @@
 
-TARGETS = cpu memory driver
+TARGETS = cpu memory loader
 
-SRC = $(TARGETS:=.c)
+SRC = cpu.c memory.c io.c instructions.c loader.c
 OBJ = $(SRC:.c=.o)
 
 CFLAGS=
@@ -9,16 +9,16 @@ LFLAGS=
 
 all: $(TARGETS)
 
-.c.o: $(OBJ)
+.c.o:
 	cc -c $< $(CFLAGS)
 
-cpu: cpu.o
-	cc -o $@ $< $(LFLAGS)
+cpu: cpu.o io.o instructions.o
+	cc -o $@ $^ $(LFLAGS)
 
 memory: memory.o
 	cc -o $@ $< $(LFLAGS)
 
-driver: driver.o
+loader: loader.o
 	cc -o $@ $< $(LFLAGS)
 
 clean:

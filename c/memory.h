@@ -7,17 +7,6 @@
 
 #define NWORDS 2000
 
-#define IO_RD 0
-#define IO_WR 1
-
-
-typedef struct {
-  int address;
-  int value;
-  unsigned int error:8;
-  unsigned int op:1;
-  unsigned int pad:7;
-} io_t;
 
 
 #endif	/* MEMORY_H */

@@ -1,4 +1,4 @@
-/* driver.c (ejo@ufo)  8 Sep 23  Modified:  8 Sep 23  10:40 */
+/* loader.c (ejo@ufo)  8 Sep 23  Modified:  8 Sep 23  10:40 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,15 +8,15 @@
 #include <libgen.h>
 #include <string.h>
 
+#include "constants.h"
 #include "cpu.h"
 #include "memory.h"
+#include "io.h"
 
 #define OPTSTR "df:o:"
 extern char *optarg;
 extern int   opterr;
 
-static int fd1[2];
-static int fd2[2];
 
 int load_memory(char *filename, int ofd);
 int dump_memory(FILE *fp, int ifd, int ofd);
@@ -26,12 +26,13 @@ int redirect(int ifd, int ofd);
 int main(int argc, char *argv[])
 {
   int opt;
-  char *program_file = NULL;
-  char *memory_dump = NULL;
   int pid;
   int debug = 0;
+  char *program_file = NULL;
+  char *memory_dump = NULL;
 
-  int in, out;
+  int fd1[2];
+  int fd2[2];  
 
   opterr = 0;
   
@@ -91,7 +92,6 @@ int main(int argc, char *argv[])
       }
 
       if (debug) {
-	fprintf(stderr, "DEBUG: Dump Memory\n");
 	dump_memory(stderr, STDIN_FILENO, STDOUT_FILENO);
 	return EXIT_SUCCESS;
 	/* NOTREACHED */
@@ -160,7 +160,6 @@ int load_memory(char *filename, int ofd)
     }
 
     if (sscanf(buf, "%d", &io.value)) {
-
       if (write(ofd, &io, sizeof(io)) < 0) {
 	fprintf(stderr, "Line %4d Failed to write [%d] %d\n",
 		lineno, io.address, io.value);
@@ -179,7 +178,7 @@ int load_memory(char *filename, int ofd)
 }
 
 #define WORDS_PER_LINE 10
-#define DUMP_FILE "dump.out"
+#define DUMP_FILE "dump.memory"
 
 int dump_memory(FILE *fp, int ifd, int ofd) {
   io_t io;
@@ -187,12 +186,11 @@ int dump_memory(FILE *fp, int ifd, int ofd) {
   
   if (!fp) {
     if (!(fp = fopen(DUMP_FILE, "w"))) {
-      perror("dump_memory:fopen");
+      perror("dump_memory:fopen:"DUMP_FILE);
       return -1;
     }
     fprintf(stderr,"DEBUG: memory dumped to %s\n", DUMP_FILE);
   }
-  
   
   for(int l=0; l < NWORDS/WORDS_PER_LINE; l++) {
     
@@ -201,11 +199,14 @@ int dump_memory(FILE *fp, int ifd, int ofd) {
 
       io.op = IO_RD;
       io.address = (l * WORDS_PER_LINE) + i;
+      io.value = 0;
       
       if ( write(ofd, &io, sizeof(io)) < 0) {
 	perror("dump_memory:write");
 	return -1;
       }
+
+      memset(&io, 0, sizeof(io));
       
       if (read(ifd, &io, sizeof(io)) < 0) {
 	perror("dump_memory:read");
