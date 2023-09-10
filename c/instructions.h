@@ -20,7 +20,7 @@ typedef enum {
   SUBX = 12,			/* Subtract X from AC store AC */
   SUBY = 13, 			/* Subtract Y from AC store AC */
   CACX = 14,			/* Copy AC to X */
-  CXAX = 15,			/* Copy X to AC */
+  CXAC = 15,			/* Copy X to AC */
   CACY = 16,			/* Copy AC to Y */
   CYAC = 17,			/* Copy Y to AC */  
   CACSP= 18,			/* Copy AC to SP */
@@ -40,6 +40,8 @@ typedef enum {
 } instr_t;
 
 
+  
+
 
 
 void timer_interrupt(state_t *state);
@@ -47,5 +49,7 @@ void timer_interrupt(state_t *state);
 void fetch(state_t *state);
 
 int  execute(state_t *state);
+
+char *mnemonic(instr_t instruction);
 
 #endif	/* INSTRUCTIONS_H */

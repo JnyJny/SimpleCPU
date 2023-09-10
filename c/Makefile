@@ -3,23 +3,27 @@ TARGETS = cpu memory loader
 
 SRC = cpu.c memory.c io.c instructions.c loader.c
 OBJ = $(SRC:.c=.o)
+HDR = $(SRC:.c=.h)
 
 CFLAGS=
 LFLAGS= 
 
 all: $(TARGETS)
 
-.c.o:
-	cc -c $< $(CFLAGS)
+.c.o: $(SRC) $(HDR)
+	cc -c $< $(CFLAGS) $(DEBUG)
 
-cpu: cpu.o io.o instructions.o
-	cc -o $@ $^ $(LFLAGS)
+CPU_OBJS= io.o instructions.o cpu.o
+CPU_HDRS= $(CPU_OBJS:.o=.h)
 
-memory: memory.o
+cpu: $(CPU_OBJS) $(CPH_HDRS)
+	cc -o $@ $(CPU_OBJS) $(LFLAGS)
+
+memory: memory.o io.h
 	cc -o $@ $< $(LFLAGS)
 
-loader: loader.o
-	cc -o $@ $< $(LFLAGS)
+loader: loader.o io.o io.h 
+	cc -o $@ $< io.o $(LFLAGS)
 
 clean:
 	rm -f $(OBJ)

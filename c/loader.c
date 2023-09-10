@@ -18,8 +18,8 @@ extern char *optarg;
 extern int   opterr;
 
 
-int load_memory(char *filename, int ofd);
-int dump_memory(FILE *fp, int ifd, int ofd);
+int load_memory(char *filename);
+int dump_memory(FILE *fp);
 
 int redirect(int ifd, int ofd);
 
@@ -31,10 +31,12 @@ int main(int argc, char *argv[])
   char *program_file = NULL;
   char *memory_dump = NULL;
 
-  int fd1[2];
-  int fd2[2];  
+  int cpu_to_memory[2];
+  int memory_to_cpu[2];  
 
   opterr = 0;
+
+  setlinebuf(stderr);
   
   while((opt = getopt(argc, argv, OPTSTR)) != EOF)
     switch(opt) {
@@ -60,22 +62,21 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
-  if ((pipe(fd1) < 0) || (pipe(fd2) < 0)) {
+  if ((pipe(cpu_to_memory) < 0) || (pipe(memory_to_cpu) < 0)) {
     perror("pipe");
     return EXIT_FAILURE;
     /* NOTREACHED */
   }
 
-
   switch(pid = fork()) {
     case -1:			/* error */
-      perror("fork");
+      perror("loader:fork");
       return EXIT_FAILURE;
       break;
       
     case 0:			/* child */
 
-      redirect(fd2[IO_RD], fd1[IO_WR]);
+      redirect(memory_to_cpu[IO_RD], cpu_to_memory[IO_WR]);
       
       execl("./"MEMORY, MEMORY);
       break;
@@ -83,16 +84,16 @@ int main(int argc, char *argv[])
       
     default:			/* parent */
 
-      redirect(fd1[IO_RD], fd2[IO_WR]);
+      redirect(cpu_to_memory[IO_RD], memory_to_cpu[IO_WR]);
       
-      if (load_memory(program_file, STDOUT_FILENO) < 0) {
-	perror("load_memory");
+      if (load_memory(program_file) < 0) {
+	perror("loader:load_memory");
 	return EXIT_FAILURE;
 	/* NOTREACHED */
       }
 
       if (debug) {
-	dump_memory(stderr, STDIN_FILENO, STDOUT_FILENO);
+	dump_memory(stderr);
 	return EXIT_SUCCESS;
 	/* NOTREACHED */
       }
@@ -125,14 +126,16 @@ int redirect(int ifd, int ofd)
 
 #define SEP " \t"
 
-int load_memory(char *filename, int ofd)
+int load_memory(char *filename)
 {
   FILE *fp;
   char  buf[BUFSIZ];
   int   lineno;
+  int   address;
   int   value;
   char *nl;
-  io_t io;
+
+  fprintf(stderr, "LOAD MEMORY [%s]\n", filename);
   
   if (!filename) {
     errno = EINVAL;
@@ -143,30 +146,25 @@ int load_memory(char *filename, int ofd)
     return -1;
   }
 
+
   lineno = 0;
 
-  io.op = IO_WR;
-  io.address = USER_PROGRAM_LOAD;
-  
+  address = USER_PROGRAM_LOAD;
+
   while (fgets(buf, 80, fp)) {
     lineno ++;
     
     if ((nl = strchr(buf, '\n')))
       *nl = '\0';
     
-    if (sscanf(buf, ". %d", &io.value)) {
-      io.address = value;
+    if (sscanf(buf, ". %d", &value)) {
+      address = value;
       continue;
     }
 
-    if (sscanf(buf, "%d", &io.value)) {
-      if (write(ofd, &io, sizeof(io)) < 0) {
-	fprintf(stderr, "Line %4d Failed to write [%d] %d\n",
-		lineno, io.address, io.value);
-	return -1;
-      }
-      
-      io.address++;
+    if (sscanf(buf, "%d", &value)) {
+      write_memory(address, value);
+      address++;
       continue;
     }
     // unrecognized lines ignored
@@ -178,43 +176,40 @@ int load_memory(char *filename, int ofd)
 }
 
 #define WORDS_PER_LINE 10
-#define DUMP_FILE "dump.memory"
 
-int dump_memory(FILE *fp, int ifd, int ofd) {
-  io_t io;
-  int  err;
+int dump_memory(FILE *fp) {
+  int address;
+  int value;
+  char  buf[BUFSIZ];
+  int   err;
+  char *cp;
   
   if (!fp) {
-    if (!(fp = fopen(DUMP_FILE, "w"))) {
-      perror("dump_memory:fopen:"DUMP_FILE);
-      return -1;
-    }
-    fprintf(stderr,"DEBUG: memory dumped to %s\n", DUMP_FILE);
+    errno = EINVAL;
+    return -1;
   }
   
-  for(int l=0; l < NWORDS/WORDS_PER_LINE; l++) {
+  for(int line=0; line < (NWORDS/WORDS_PER_LINE); line++) {
     
-    fprintf(fp, "[%04d] ", l * WORDS_PER_LINE);
-    for(int i=0; i < 10; i++) {
+    memset(buf, '\0', sizeof(buf));
 
-      io.op = IO_RD;
-      io.address = (l * WORDS_PER_LINE) + i;
-      io.value = 0;
+    cp = buf;
+    
+    cp += sprintf(cp, "[%04d] ", line * WORDS_PER_LINE);
+    
+    for(int i=0; i < WORDS_PER_LINE; i++) {
       
-      if ( write(ofd, &io, sizeof(io)) < 0) {
-	perror("dump_memory:write");
-	return -1;
-      }
+      
+      address = (line * WORDS_PER_LINE) + i;
 
-      memset(&io, 0, sizeof(io));
+      value = read_memory(address);
       
-      if (read(ifd, &io, sizeof(io)) < 0) {
-	perror("dump_memory:read");
-	return -1;
-      }
-      fprintf(fp, "%04d ", io.value);
+      cp += sprintf(cp, "%04d ", value);
     }
-    fputs("\n", fp);
+
+    sprintf(cp, "\n");
+    fputs(buf, fp);
+    fflush(fp);
   }
   
   return 0;

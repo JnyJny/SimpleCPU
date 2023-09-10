@@ -10,6 +10,7 @@
 
 typedef void (*instr_f)(state_t *);
 
+
 void invalid_instruction(state_t *state);
 
 void load_value(state_t *state);
@@ -43,6 +44,26 @@ void pop(state_t *state);
 void interrupt(state_t *state);
 void iret(state_t *state);
 void end(state_t *state);
+
+
+char *mnemonic_table[31] = {
+  "INV", "LDV", "LDI", "LDX", "LDY", "LDS", "STA", "GET", "PUT",
+  "ADDX", "ADDY", "SUBX", "SUBY", "CACX", "CXAC", "CACY", "CYAC",
+  "CACSP", "CSPAC", "JUMP", "JMPEQ", "JMPNE", "CALL", "RET", "INC",
+  "DEC", "PUSH", "POP", "INTR", "IRET",
+};
+
+char *mnemonic(instr_t instruction)
+{
+
+  if (instruction == END)
+    return "END";
+  
+  if ((instruction < 1) || (instruction > 30))
+    return "INV";
+  
+  return mnemonic_table[instruction];
+}
 
 
 instr_f instruction_dispatch_table[51] = {

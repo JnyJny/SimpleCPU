@@ -9,46 +9,72 @@
 #include "memory.h"
 #include "io.h"
 
+#define DEBUG
+
 int memory[NWORDS];
 
 int load(int);
 int store(int, int);
 
 int main(int argc, char *argv[]) {
-  io_t io;
+  io_t request, response;
   int  err;
-  FILE *trace = fopen("memory.t", "w");
+
+#ifdef DEBUG  
+  FILE *trace = fopen("trace.memory", "w");
+  fprintf(trace,"E O D %-8s:%-8s:%-8s\n","ADDRESS","VALUE","ERROR");
+#endif
 
   memset(memory, 0, sizeof(memory));
     
   while (1) {
     
-    memset(&io, 0, sizeof(io));
+    memset(&request, 0, sizeof(request));
     
-    if ((err = read(STDIN_FILENO, &io, sizeof(io))) < 0)
+    if ((err = read(STDIN_FILENO, &request, sizeof(request))) < 0)
       if (errno == EPIPE)
 	break;
 
+    response = request;
+    response.error = 0;
     
-    switch(io.op) {
+    switch(request.op) {
+      
       case IO_RD:
-	if ((io.value = load(io.address)) < 0)
-	  io.error = errno;
-	fprintf(trace,"R %08d:%08d\n", io.address, io.value);	
+	if ((response.value = load(request.address)) < 0)
+	  response.error = errno;
+	
+#ifdef DEBUG	
+	DUMP_IO(" IN", trace, &request);
+	DUMP_IO("OUT", trace, &response);
+	fflush(trace);
+#endif	
 	break;
 	
       case IO_WR:
-	if ((err = store(io.address, io.value)) < 0)
-	  io.error = errno;
-	fprintf(trace,"W %08d:%08d\n", io.address, io.value);	
+	response.value = request.value;
+	if ((err = store(request.address, request.value)) < 0)
+	  response.error = errno;
+#ifdef DEBUG
+	DUMP_IO(" IN", trace, &request);
+	DUMP_IO("OUT", trace, &response);
+	fflush(trace);
+#endif	
 	break;
 
       default:
-	io.error = ENOMSG;
+	response.address = request.address;
+	response.op = request.op;
+	response.error = ENOMSG;
+#ifdef DEBUG
+	DUMP_IO(" IN", trace, &request);
+	DUMP_IO("OUT", trace, &response);	
+	fflush(trace);
+#endif		
 	break;
     }
 
-    if ((err = write(STDOUT_FILENO, &io, sizeof(io))) < 0)
+    if ((err = write(STDOUT_FILENO, &response, sizeof(response))) < 0)
       if (errno == EPIPE)
 	break;
   }

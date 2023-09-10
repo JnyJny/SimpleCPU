@@ -2,3 +2,5 @@
 cpu
 loader
 memory
+trace.memory
+dump.memory
