@@ -15,23 +15,13 @@
 extern char *optarg;
 extern int opterr;
 
-FILE *console;
-
-
 void dump_state(FILE *fp, state_t *state);
-
-
-
-
 
 int main(int argc, char *argv[])
 {
   int      opt;
   state_t  state;
-  char    *filename = NULL;
-  int      result;
-
-  console = stderr;
+  int      running;
 
   state.ir = 0;
   state.pc = USER_PROGRAM_LOAD;
@@ -41,9 +31,11 @@ int main(int argc, char *argv[])
   state.y = 0;
   state.timer = DEFAULT_TIMER;
   state.mode = USER;
-  state.ienable = 1;
+  state.interrupts = 1;
   state.debug = 0;
   state.cycles = 0;
+
+
 
   while((opt = getopt(argc, argv, OPTSTR)) != EOF)
     switch(opt) {
@@ -61,44 +53,31 @@ int main(int argc, char *argv[])
 	break;
     }
 
+  fprintf(CONSOLE, "[ CPU] Start. Timer %d Debug %d\n", state.timer, state.debug);
 
-  while (1) {
+  do {
 
-    if (state.debug)
-      dump_state(stderr, &state);
-
-    if ((state.cycles % state.timer) == 0)
+    if ( state.cycles && ((state.cycles % state.timer) == 0))
       timer_interrupt(&state);
 
     fetch(&state);
 
-    if (!execute(&state))
-      break;
-  }
+    dump_state(CONSOLE, &state);    
+
+    if ((running = execute(&state)) < 0) {
+      fprintf(CONSOLE, "[ CPU] ABEND %04d @ %04d\n", state.ir, state.pc);
+      exit(EXIT_FAILURE);
+    }
+
+  } while(running);
+
+  fprintf(CONSOLE, "[ CPU] End. Executed %d instructions.\n",
+	  state.cycles);  
   
   return EXIT_SUCCESS;
 }
  
 
-void dump_state(FILE *fp, state_t *state)
-{
 
-  fprintf(fp, "[mode] %c [debug]: %d [ienable] %d\n",
-	  state->mode?'K':'U',
-	  state->debug,
-	  state->ienable);  
-  
-  fprintf(fp, "[ir] %08d [pc] %08d [sp] %08d\n",
-	  state->ir, state->pc, state->sp);
-
-  fprintf(fp, "[ac] %08d [ x] %08d [ y] %08d\n",
-	  state->ac, state->x, state->y);
-  
-  fprintf(fp, "[timer] %08d [cycles] %08d [timer?] %d [ienable] %d\n",
-	  state->timer,
-	  state->cycles,
-	  (state->cycles % state->timer) == 0,
-	  state->ienable);
-}
 
 

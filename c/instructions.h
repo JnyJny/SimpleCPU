@@ -39,10 +39,7 @@ typedef enum {
   END  = 50,			/* End execution */
 } instr_t;
 
-
-  
-
-
+#define VALID_INSTRUCTION(I) (((I)==END) || (((I)>=LDV) &&((I)<=IRET)))
 
 void timer_interrupt(state_t *state);
 
@@ -50,6 +47,6 @@ void fetch(state_t *state);
 
 int  execute(state_t *state);
 
-char *mnemonic(instr_t instruction);
+void dump_state(FILE *fp, state_t *state);
 
 #endif	/* INSTRUCTIONS_H */

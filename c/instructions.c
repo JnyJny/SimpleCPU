@@ -45,27 +45,6 @@ void interrupt(state_t *state);
 void iret(state_t *state);
 void end(state_t *state);
 
-
-char *mnemonic_table[31] = {
-  "INV", "LDV", "LDI", "LDX", "LDY", "LDS", "STA", "GET", "PUT",
-  "ADDX", "ADDY", "SUBX", "SUBY", "CACX", "CXAC", "CACY", "CYAC",
-  "CACSP", "CSPAC", "JUMP", "JMPEQ", "JMPNE", "CALL", "RET", "INC",
-  "DEC", "PUSH", "POP", "INTR", "IRET",
-};
-
-char *mnemonic(instr_t instruction)
-{
-
-  if (instruction == END)
-    return "END";
-  
-  if ((instruction < 1) || (instruction > 30))
-    return "INV";
-  
-  return mnemonic_table[instruction];
-}
-
-
 instr_f instruction_dispatch_table[51] = {
   invalid_instruction,
   load_value,
@@ -128,7 +107,7 @@ int read_memory_check(int address, state_t *state)
 {
 
   if (CHECK_ADDRESS(address, state->mode)) {
-    fprintf(stderr,"SEGFAULT: [pc] %08d [ir] %08d [A] %08d\n",
+    fprintf(CONSOLE,"SEGFAULT: [pc] %08d [ir] %08d [A] %08d\n",
 	    state->pc,
 	    state->ir,
 	    address);
@@ -141,7 +120,7 @@ int read_memory_check(int address, state_t *state)
 int write_memory_check(int address, int value, state_t *state)
 {
   if (CHECK_ADDRESS(address, state->mode)) {
-    fprintf(stderr,"Memory Fault: [pc] %08d [ir] %08d [A] %08d\n",
+    fprintf(CONSOLE,"Memory Fault: [pc] %08d [ir] %08d [A] %08d\n",
 	    state->pc,
 	    state->ir,
 	    address);    
@@ -151,21 +130,59 @@ int write_memory_check(int address, int value, state_t *state)
   return write_memory(address, value);
 }
 
+#define HR "--------------------------------------------------\n"
+
+void dump_state(FILE *fp, state_t *state)
+{
+  int stack_base;
+  int value;
+  
+  if (!state->debug)
+    return;
+  
+  fputs(HR, fp);
+  fprintf(fp, "[ir] %08d [pc] %08d [sp] %08d [mode] %s\n",
+	  state->ir, state->pc, state->sp, state->mode?"KERN":"USER");
+  fprintf(fp, "[ac] %08d [ x] %08d [ y] %08d [DEBG] %s\n",
+	  state->ac, state->x, state->y, state->debug?"ON":"OFF");
+  fprintf(fp, "[ti] %08d [cy] %08d [t?] %8d [INTR] %s\n",
+	  state->timer,
+	  state->cycles,
+	  (state->cycles % state->timer) == 0,
+	  state->interrupts?"ON":"OFF");
+
+  stack_base = (state->mode)?SSTACK_BASE:USTACK_BASE;
+
+  for (int i=state->sp+1; i <= stack_base; i++) {
+    fprintf(CONSOLE, "[%cSTK] %04d: %04d\n",
+	    state->mode?'K':'U',
+	    i,
+	    read_memory(i));
+  }  
+  
+}
+
 /* Fetch and Execute 
  */
 
 void fetch(state_t *state)
 {
-  state->ir = read_memory_check(state->pc++, state);
+  state->ir = read_memory_check(state->pc, state);
 }
 
 int execute(state_t *state)
 {
 
-  if (state->ir == END)
-    return 0;
+  if (!VALID_INSTRUCTION(state->ir))
+    return -1;
   
+  if (state->ir == END) {
+    state->cycles++;
+    return 0;
+  }
+    
   instruction_dispatch_table[state->ir](state);
+  state->cycles++;
   
   return 1;
 }
@@ -175,24 +192,26 @@ int execute(state_t *state)
 
 void invalid_instruction(state_t *state)
 {
-  fprintf(stderr,"Invalid Instruction: [pc] %08d [ir] %08d\n",
+  fprintf(CONSOLE,"Invalid Instruction: [pc] %08d [ir] %08d\n",
 	  state->pc, state->ir);
-  /* TODO Exit or Soldier On? */
 }
+
 
 void load_value(state_t *state)
 {
   /* Load value: Load the value into AC */
-  state->ac = read_memory_check(state->pc++, state);
+  state->ac = read_memory_check(++state->pc, state);
+  state->pc++;
 }
 
 void load_addr(state_t *state)
 {
   /* Load addr: Load the value at address into AC */
   int addr;
-  
-  addr = read_memory_check(state->pc++, state);
+
+  addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr, state);
+  state->pc++;
 }
 
 void load_indirect(state_t *state)
@@ -200,19 +219,20 @@ void load_indirect(state_t *state)
   /* LoadInd addr: Load value from address at address */
   int addr;
   
-  addr = read_memory_check(state->pc++, state);
+  addr = read_memory_check(++state->pc, state);
   addr = read_memory_check(addr, state);
   state->ac = read_memory_check(addr, state);
+  state->pc++;
 }
 
 void load_index_x(state_t *state)
 {
   /* LoadIdxX addr: Load value (addr+X) into AC */
   int addr;
-  
 
-  addr = read_memory_check(state->pc++, state);
+  addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr + state->x, state);
+  state->pc++;
 }
 
 void load_index_y(state_t *state)
@@ -220,14 +240,16 @@ void load_index_y(state_t *state)
   /* LoadIdxY addr: Load value (addr+Y) into AC */
   int addr;
   
-  addr = read_memory_check(state->pc++, state);
+  addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr + state->y, state);
+  state->pc++;
 }
 
 void load_sp_x(state_t *state)
 {
   /* LoadSpX: Load from (Sp+X) info AC */
   state->ac = read_memory_check(state->sp + state->x, state);
+  state->pc++;
 }
 
 void store_addr(state_t *state)
@@ -235,14 +257,16 @@ void store_addr(state_t *state)
   /* Store addr: Store AC into address */
   int addr;
 
-  addr = read_memory_check(state->pc++, state);
-  write_memory_check(addr, state->ac, state);  
+  addr = read_memory_check(++state->pc, state);
+  write_memory_check(addr, state->ac, state);
+  state->pc++;
 }
 
 void get(state_t *state)
 {
   /* Get: random into from 1 to 100 into AC */
   state->ac = 1 + (rand() % 100);
+  state->pc++;
 }
 
 void put_port(state_t *state)
@@ -250,84 +274,101 @@ void put_port(state_t *state)
   /* Put port: port1, write AC as int, port2 write AC as char */
   int port;
   
-  port = read_memory_check(state->pc++, state);
+  port = read_memory_check(++state->pc, state);
+  
   switch(port) {
     case 1:
-      fprintf(CONSOLE, "%d", state->ac);
+      fprintf(CONSOLE, "[COUT] port=%d AC=%d\n",
+	      port,
+	      state->ac);
       break;
     case 2:
-      fprintf(CONSOLE, "%c", state->ac);
+      fprintf(CONSOLE, "[COUT] port=%d AC[%d]=%c\n",
+	      port,
+	      state->ac,
+	      state->ac);
       break;
     default:
       break;
   }
+  state->pc++;
 }
 
 void add_x(state_t *state)
 {
   /* AddX: add X to AC */
-  state->ac += state->x;  
+  state->ac += state->x;
+  state->pc++;
 }
 
 void add_y(state_t *state)
 {
   /* AddY: add Y to AC */
   state->ac += state->y;
+  state->pc++;
 }
 
 void sub_x(state_t *state)
 {
   /* SubX: subtract X from AC */
   state->ac -= state->x;
+  state->pc++;
 }
 
 void sub_y(state_t *state)
 {
   /* SubY: subtract Y from AC */
   state->ac -= state->y;
+  state->pc++;
 }
 
 void copy_to_x(state_t *state)
 {
   /* CopyToX: Copy AC to X */
   state->x = state->ac;
+  state->pc++;
 }
 
 void copy_from_x(state_t *state)
 {
   /* CopyFromX: Copy X to AC */
   state->ac = state->x;
+  state->pc++;
 }
 
 void copy_to_y(state_t *state)
 {
   /* CopyToY: Copy AC to Y */
   state->y = state->ac;
+  state->pc++;
 }
 
 void copy_from_y(state_t *state)
 {
   /* CopyFromY: Copy Y to AC */
   state->ac = state->y;
+  state->pc++;
 }
 
 void copy_to_sp(state_t *state)
 {
   /* CopyToSP: Copy AC to SP */
   state->sp = state->ac;
+  state->pc++;
 }
 
 void copy_from_sp(state_t *state)
 {
   /* CopyFromSP: Copy SP to AC */
   state->ac = state->sp;
+  state->pc++;
 }
 
 void jump_addr(state_t *state)
 {
   /* Jump Addr: Jump to the address */
 
-  state->pc = read_memory_check(state->pc++, state);
+  state->pc = read_memory_check(++state->pc, state);
 }
 
 void jump_eq_addr(state_t *state)
@@ -335,9 +376,12 @@ void jump_eq_addr(state_t *state)
   /* JumpIfEqual addr: jump to addr if AC is zero */
   int addr;
   
-  addr = read_memory_check(state->pc++, state);
+  addr = read_memory_check(++state->pc, state);
+  
   if (state->ac == 0)
     state->pc = addr;
+  else
+    state->pc++;
 }
 
 void jump_ne_addr(state_t *state)
@@ -345,46 +389,58 @@ void jump_ne_addr(state_t *state)
   /* JumpIfNotEqual addr: Jump to addr if AC is not zero */
   int addr;
   
-  addr = read_memory_check(state->pc++, state);
+  addr = read_memory_check(++state->pc, state);
   if (state->ac != 0)
     state->pc = addr;
+  else
+    state->pc++;
 }
 
 void call_addr(state_t *state)
 {
   /* Call addr: Push return address onto stack, jump to addr */
-  write_memory_check(state->sp--, state->pc+2, state);
-  state->pc = read_memory_check(state->pc+1, state);
+  int addr;
+
+  addr = read_memory_check(++state->pc, state);
+  write_memory_check(state->sp--, state->pc+1, state);
+  state->pc = addr;
 }
 
 void ret(state_t *state)
 {
   /* Ret: Pop return address from stack, jump to address */
-  state->pc = read_memory_check(state->sp++, state);
+  int addr;
+
+  addr = read_memory_check(++state->sp, state);
+  state->pc = addr;
 }
 
 void inc_x(state_t *state)
 {
   /* IncX: increment the value in X */
   state->x++;
+  state->pc++;
 }
 
 void dec_x(state_t *state)
 {
   /* DecX: decrement the value in X */
   state->x++;
+  state->pc++;
 }
 
 void push(state_t *state)
 {
   /* Push: push AC onto Stack */
   write_memory_check(state->sp--, state->ac, state);
+  state->pc++;
 }
 
 void pop(state_t *state)
 {
   /* Pop: pop stack into AC */
   state->ac = read_memory_check(state->sp++, state);
+  state->pc++;
 }
 
 void interrupt(state_t *state)
@@ -392,11 +448,11 @@ void interrupt(state_t *state)
   /* Int: perform system call */
   int sp;
   
-  if (!state->ienable)
+  if (!state->interrupts)
     return;
   
   state->mode = SYSTEM;
-  state->ienable = 0;
+  state->interrupts = 0;
 
   sp = state->sp;
   state->sp = SSTACK_BASE;
@@ -407,18 +463,21 @@ void interrupt(state_t *state)
 
 void timer_interrupt(state_t *state)
 {
-  int sp;
+  int usp;
+  int upc;
   
-  if (!state->ienable)
+  if (!state->interrupts)
     return ;
   
   state->mode = SYSTEM;
-  state->ienable = 0;
+  state->interrupts = 0;
 
-  sp = state->sp;
+  usp = state->sp;
+  upc = state->pc;
+    
   state->sp = SSTACK_BASE;
-  write_memory_check(state->sp--, state->sp, state);
-  write_memory_check(state->sp--, state->pc, state);
+  write_memory_check(state->sp--, usp, state);
+  write_memory_check(state->sp--, upc, state);
   state->pc = TIMER_PROGRAM_LOAD;
 }
 
@@ -426,17 +485,16 @@ void iret(state_t *state)
 {
   /* IRet: return from system call */
   
-  state->ienable = 1;
+  state->interrupts = 1;
   state->mode = USER;
   /* pop PC and SP from system stack */
-  state->pc = read_memory_check(state->sp++, state);
-  state->sp = read_memory_check(state->sp++, state);
+  state->pc = read_memory_check(++state->sp, state);
+  state->sp = read_memory_check(++state->sp, state);
 }
 
 void end(state_t *state)
 {
   /* End executation */
-  
 }
 
 

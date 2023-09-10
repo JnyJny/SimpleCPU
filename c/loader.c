@@ -13,7 +13,7 @@
 #include "memory.h"
 #include "io.h"
 
-#define OPTSTR "df:o:"
+#define OPTSTR "df:o:t:"
 extern char *optarg;
 extern int   opterr;
 
@@ -32,7 +32,8 @@ int main(int argc, char *argv[])
   char *memory_dump = NULL;
 
   int cpu_to_memory[2];
-  int memory_to_cpu[2];  
+  int memory_to_cpu[2];
+  char *timer = "100";
 
   opterr = 0;
 
@@ -45,6 +46,9 @@ int main(int argc, char *argv[])
 	break;
       case 'f':
 	program_file = optarg;
+	break;
+      case 't':
+	timer = optarg;
 	break;
       case '?':
       case 'h':
@@ -78,7 +82,7 @@ int main(int argc, char *argv[])
 
       redirect(memory_to_cpu[IO_RD], cpu_to_memory[IO_WR]);
       
-      execl("./"MEMORY, MEMORY);
+      execl("./"MEMORY, MEMORY, (char *)NULL);
       break;
 
       
@@ -92,13 +96,11 @@ int main(int argc, char *argv[])
 	/* NOTREACHED */
       }
 
-      if (debug) {
+      if (debug)
 	dump_memory(stderr);
-	return EXIT_SUCCESS;
-	/* NOTREACHED */
-      }
 
-      execl("./"CPU, CPU);
+
+      execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
       /* NOTREACHED */
       break;
   }
@@ -135,7 +137,7 @@ int load_memory(char *filename)
   int   value;
   char *nl;
 
-  fprintf(stderr, "LOAD MEMORY [%s]\n", filename);
+  fprintf(stderr, "[LOAD] %s\n", filename);
   
   if (!filename) {
     errno = EINVAL;
@@ -145,7 +147,6 @@ int load_memory(char *filename)
   if (!(fp = fopen(filename, "r"))) {
     return -1;
   }
-
 
   lineno = 0;
 
@@ -178,11 +179,11 @@ int load_memory(char *filename)
 #define WORDS_PER_LINE 10
 
 int dump_memory(FILE *fp) {
-  int address;
-  int value;
+  int   address;
+  int   value;
   char  buf[BUFSIZ];
-  int   err;
   char *cp;
+  int   sum;
   
   if (!fp) {
     errno = EINVAL;
@@ -196,20 +197,21 @@ int dump_memory(FILE *fp) {
     cp = buf;
     
     cp += sprintf(cp, "[%04d] ", line * WORDS_PER_LINE);
+
+    sum = 0;
     
     for(int i=0; i < WORDS_PER_LINE; i++) {
-      
-      
       address = (line * WORDS_PER_LINE) + i;
-
       value = read_memory(address);
-      
+      sum += value;
       cp += sprintf(cp, "%04d ", value);
     }
 
-    sprintf(cp, "\n");
-    fputs(buf, fp);
-    fflush(fp);
+    if (sum) {
+      sprintf(cp, "\n");
+      fputs(buf, fp);
+      fflush(fp);
+    }
   }
   
   return 0;

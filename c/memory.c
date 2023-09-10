@@ -6,10 +6,9 @@
 #include <errno.h>
 #include <string.h>
 
+#include "constants.h"
 #include "memory.h"
 #include "io.h"
-
-#define DEBUG
 
 int memory[NWORDS];
 
@@ -17,13 +16,15 @@ int load(int);
 int store(int, int);
 
 int main(int argc, char *argv[]) {
-  io_t request, response;
+  io_t request;
+  io_t response;
   int  err;
 
 #ifdef DEBUG  
   FILE *trace = fopen("trace.memory", "w");
-  fprintf(trace,"E O D %-8s:%-8s:%-8s\n","ADDRESS","VALUE","ERROR");
 #endif
+
+  fprintf(CONSOLE, "[ MEM] Starting.\n");
 
   memset(memory, 0, sizeof(memory));
     
@@ -47,7 +48,6 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG	
 	DUMP_IO(" IN", trace, &request);
 	DUMP_IO("OUT", trace, &response);
-	fflush(trace);
 #endif	
 	break;
 	
@@ -58,7 +58,6 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG
 	DUMP_IO(" IN", trace, &request);
 	DUMP_IO("OUT", trace, &response);
-	fflush(trace);
 #endif	
 	break;
 
@@ -69,7 +68,6 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG
 	DUMP_IO(" IN", trace, &request);
 	DUMP_IO("OUT", trace, &response);	
-	fflush(trace);
 #endif		
 	break;
     }
@@ -77,6 +75,7 @@ int main(int argc, char *argv[]) {
     if ((err = write(STDOUT_FILENO, &response, sizeof(response))) < 0)
       if (errno == EPIPE)
 	break;
+
   }
 
   return EXIT_SUCCESS;

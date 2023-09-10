@@ -16,7 +16,7 @@ typedef struct {
   int y;			/* operand Y */
   int timer;			/* interrupt after # instructions */
   unsigned int mode:1;		/* USER or SYSTEM */
-  unsigned int ienable:1;	/* interrupts 0=off 1=enable */
+  unsigned int interrupts:1;	/* 0=off 1=enable */
   unsigned int debug:1;		/* 0=off 1=enable */
   unsigned int cycles:29;	/* number of instructions executed */
 } state_t;
