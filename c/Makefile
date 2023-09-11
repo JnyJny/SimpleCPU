@@ -26,7 +26,7 @@ loader: loader.o io.o io.h
 	cc -o $@ $< io.o $(LFLAGS)
 
 clean:
-	rm -f $(OBJ)
+	rm -f $(OBJ) trace.memory
 
 immaculate: clean
 	rm -f $(TARGETS)
