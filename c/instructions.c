@@ -143,24 +143,26 @@ void dump_state(FILE *fp, state_t *state)
   fputs(HR, fp);
   fprintf(fp, "[ir] %08d [pc] %08d [sp] %08d [mode] %s\n",
 	  state->ir, state->pc, state->sp, state->mode?"KERN":"USER");
-  fprintf(fp, "[ac] %08d [ x] %08d [ y] %08d [DEBG] %s\n",
+  fprintf(fp, "[ac] %08d [ x] %08d [ y] %08d [debg] %s\n",
 	  state->ac, state->x, state->y, state->debug?"ON":"OFF");
-  fprintf(fp, "[ti] %08d [cy] %08d [t?] %8d [INTR] %s\n",
-	  state->timer,
+  fprintf(fp, "[cy] %08d [ti] %08d [t?] %8d [intr] %s\n",
 	  state->cycles,
-	  (state->cycles % state->timer) == 0,
+	  state->timer_interval,
+	  (state->cycles % state->timer_interval) == 0,
 	  state->interrupts?"ON":"OFF");
 
   stack_base = (state->mode)?SSTACK_BASE:USTACK_BASE;
 
   for (int i=state->sp+1; i <= stack_base; i++) {
-    fprintf(CONSOLE, "[%cSTK] %04d: %04d\n",
-	    state->mode?'K':'U',
+    fprintf(CONSOLE, "[%cstk] %04d: %04d\n",
+	    state->mode?'k':'u',
 	    i,
 	    read_memory(i));
   }  
   
 }
+
+
 
 /* Fetch and Execute 
  */
@@ -182,6 +184,11 @@ int execute(state_t *state)
   }
     
   instruction_dispatch_table[state->ir](state);
+
+  if (NOT_CTI(state->ir)) {
+    state->pc++;
+  }
+  
   state->cycles++;
   
   return 1;
@@ -201,7 +208,6 @@ void load_value(state_t *state)
 {
   /* Load value: Load the value into AC */
   state->ac = read_memory_check(++state->pc, state);
-  state->pc++;
 }
 
 void load_addr(state_t *state)
@@ -211,7 +217,6 @@ void load_addr(state_t *state)
 
   addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr, state);
-  state->pc++;
 }
 
 void load_indirect(state_t *state)
@@ -222,7 +227,6 @@ void load_indirect(state_t *state)
   addr = read_memory_check(++state->pc, state);
   addr = read_memory_check(addr, state);
   state->ac = read_memory_check(addr, state);
-  state->pc++;
 }
 
 void load_index_x(state_t *state)
@@ -232,7 +236,6 @@ void load_index_x(state_t *state)
 
   addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr + state->x, state);
-  state->pc++;
 }
 
 void load_index_y(state_t *state)
@@ -242,14 +245,12 @@ void load_index_y(state_t *state)
   
   addr = read_memory_check(++state->pc, state);
   state->ac = read_memory_check(addr + state->y, state);
-  state->pc++;
 }
 
 void load_sp_x(state_t *state)
 {
   /* LoadSpX: Load from (Sp+X) info AC */
   state->ac = read_memory_check(state->sp + state->x, state);
-  state->pc++;
 }
 
 void store_addr(state_t *state)
@@ -259,14 +260,12 @@ void store_addr(state_t *state)
 
   addr = read_memory_check(++state->pc, state);
   write_memory_check(addr, state->ac, state);
-  state->pc++;
 }
 
 void get(state_t *state)
 {
   /* Get: random into from 1 to 100 into AC */
   state->ac = 1 + (rand() % 100);
-  state->pc++;
 }
 
 void put_port(state_t *state)
@@ -291,77 +290,66 @@ void put_port(state_t *state)
     default:
       break;
   }
-  state->pc++;
 }
 
 void add_x(state_t *state)
 {
   /* AddX: add X to AC */
   state->ac += state->x;
-  state->pc++;
 }
 
 void add_y(state_t *state)
 {
   /* AddY: add Y to AC */
   state->ac += state->y;
-  state->pc++;
 }
 
 void sub_x(state_t *state)
 {
   /* SubX: subtract X from AC */
   state->ac -= state->x;
-  state->pc++;
 }
 
 void sub_y(state_t *state)
 {
   /* SubY: subtract Y from AC */
   state->ac -= state->y;
-  state->pc++;
 }
 
 void copy_to_x(state_t *state)
 {
   /* CopyToX: Copy AC to X */
   state->x = state->ac;
-  state->pc++;
 }
 
 void copy_from_x(state_t *state)
 {
   /* CopyFromX: Copy X to AC */
   state->ac = state->x;
-  state->pc++;
 }
 
 void copy_to_y(state_t *state)
 {
   /* CopyToY: Copy AC to Y */
   state->y = state->ac;
-  state->pc++;
 }
 
 void copy_from_y(state_t *state)
 {
   /* CopyFromY: Copy Y to AC */
   state->ac = state->y;
-  state->pc++;
 }
 
 void copy_to_sp(state_t *state)
 {
   /* CopyToSP: Copy AC to SP */
   state->sp = state->ac;
-  state->pc++;
 }
 
 void copy_from_sp(state_t *state)
 {
   /* CopyFromSP: Copy SP to AC */
   state->ac = state->sp;
-  state->pc++;
 }
 
 void jump_addr(state_t *state)
@@ -419,28 +407,24 @@ void inc_x(state_t *state)
 {
   /* IncX: increment the value in X */
   state->x++;
-  state->pc++;
 }
 
 void dec_x(state_t *state)
 {
   /* DecX: decrement the value in X */
   state->x++;
-  state->pc++;
 }
 
 void push(state_t *state)
 {
   /* Push: push AC onto Stack */
   write_memory_check(state->sp--, state->ac, state);
-  state->pc++;
 }
 
 void pop(state_t *state)
 {
   /* Pop: pop stack into AC */
   state->ac = read_memory_check(state->sp++, state);
-  state->pc++;
 }
 
 void interrupt(state_t *state)

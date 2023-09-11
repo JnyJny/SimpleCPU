@@ -41,6 +41,10 @@ typedef enum {
 
 #define VALID_INSTRUCTION(I) (((I)==END) || (((I)>=LDV) &&((I)<=IRET)))
 
+/* Identify Control Transfer Instructions */
+#define IS_CTI(I) (((I)>=JUMP)&&((I)<=RET)) || (((I)==INTR)||((I)==IRET))
+#define NOT_CTI(I) (!(IS_CTI(I)))
+
 void timer_interrupt(state_t *state);
 
 void fetch(state_t *state);
