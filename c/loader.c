@@ -13,9 +13,12 @@
 #include "memory.h"
 #include "io.h"
 
-#define OPTSTR "df:o:t:"
+#define OPTSTR "df:nt:"
 extern char *optarg;
 extern int   opterr;
+
+#define USAGE_MSG \
+  "usage: %s -f program_file [-d] [-n] [-t timer_interval]\n"
 
 
 int load_program(char *filename, int debug);
@@ -29,6 +32,7 @@ int main(int argc, char *argv[])
   int opt;
   int pid;
   int debug = 0;
+  int dryrun = 0;
   char *program_file = NULL;
   char *memory_dump = NULL;
 
@@ -48,21 +52,22 @@ int main(int argc, char *argv[])
       case 'f':
 	program_file = optarg;
 	break;
+      case 'n':
+	dryrun = 1;
+	break;
       case 't':
 	timer = optarg;
 	break;
       case '?':
       case 'h':
-	fprintf(stderr,"usage: %s -f program_file [-d]\n",
-		basename(argv[0]));
+	fprintf(stderr, USAGE_MSG, basename(argv[0]));
 	return EXIT_FAILURE;
 	/* NOTREACHED */
 	break;
     }
 
   if (!program_file) {
-    fprintf(stderr,"usage: %s -f program_file [-d]\n",
-	    basename(argv[0]));
+    fprintf(stderr, USAGE_MSG,basename(argv[0]));
     fprintf(stderr,"\tProgram file name required.\n");
     return EXIT_FAILURE;
   }
@@ -80,7 +85,6 @@ int main(int argc, char *argv[])
       break;
       
     case 0:			/* child */
-
       redirect(memory_to_cpu[IO_RD], cpu_to_memory[IO_WR]);
       execl("./"MEMORY, MEMORY, (char *)NULL);
       break;
@@ -100,9 +104,13 @@ int main(int argc, char *argv[])
       if (debug)
 	dump_memory(CONSOLE);
 
+      if (!dryrun) {
+	execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
+	/* NOTREACHED */
+      }
 
-      execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
-      /* NOTREACHED */
+      dump_memory(CONSOLE);
+      
       break;
   }
 
@@ -149,10 +157,12 @@ int load_program(char *filename, int debug)
     return -1;
   }
 
+  fprintf(CONSOLE, "[LOAD] %s\n", filename);
+
   lineno = 0;
 
   address = USER_PROGRAM_LOAD;
-
+  
   while (fgets(buf, 80, fp)) {
     lineno ++;
     
@@ -184,7 +194,8 @@ int load_program(char *filename, int debug)
 
   fclose(fp);
 
-  fprintf(CONSOLE, "[LOAD] %s - %d lines\n", filename, lineno);    
+  if (debug)
+    fprintf(CONSOLE, "[LOAD] %s - %d lines\n", filename, lineno);    
   
   return 0;
 }
