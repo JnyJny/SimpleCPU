@@ -5,7 +5,7 @@
 
 #define CPU "cpu"
 
-#define DEFAULT_TIMER 0
+#define DEFAULT_TIMER_INTERVAL 100
 
 typedef struct {
   int ir;			/* instruction register */
@@ -14,7 +14,7 @@ typedef struct {
   int ac;			/* accumulator */
   int x;			/* operand X */
   int y;			/* operand Y */
-  int timer;			/* interrupt after # instructions */
+  int timer_interval;	        /* # cycles to fire timer interrupts */
   unsigned int mode:1;		/* USER or SYSTEM */
   unsigned int interrupts:1;	/* 0=off 1=enable */
   unsigned int debug:1;		/* 0=off 1=enable */

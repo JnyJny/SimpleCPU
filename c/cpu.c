@@ -15,12 +15,11 @@
 extern char *optarg;
 extern int opterr;
 
-void dump_state(FILE *fp, state_t *state);
-
 int main(int argc, char *argv[])
 {
   int      opt;
   state_t  state;
+  int      timer_fired;
   int      running;
 
   state.ir = 0;
@@ -29,18 +28,16 @@ int main(int argc, char *argv[])
   state.ac = 0;
   state.x = 0;
   state.y = 0;
-  state.timer = DEFAULT_TIMER;
+  state.timer_interval = DEFAULT_TIMER_INTERVAL;
   state.mode = USER;
   state.interrupts = 1;
   state.debug = 0;
   state.cycles = 0;
 
-
-
   while((opt = getopt(argc, argv, OPTSTR)) != EOF)
     switch(opt) {
       case 't':
-	state.timer = atoi(optarg);
+	state.timer_interval = atoi(optarg);
 	break;
       case 'd':
 	state.debug = 1;
@@ -53,31 +50,32 @@ int main(int argc, char *argv[])
 	break;
     }
 
-  fprintf(CONSOLE, "[ CPU] Start. Timer %d Debug %d\n", state.timer, state.debug);
+  fprintf(CONSOLE, "[ CPU] Start. Timer %d Debug %d\n",
+	  state.timer_interval, state.debug);
 
   do {
 
-    if ( state.cycles && ((state.cycles % state.timer) == 0))
-      timer_interrupt(&state);
+    if (state.timer_interval &&
+	state.cycles &&
+	((state.cycles % state.timer_interval) == 0))
+	timer_interrupt(&state);
 
     fetch(&state);
 
-    dump_state(CONSOLE, &state);    
-
     if ((running = execute(&state)) < 0) {
-      fprintf(CONSOLE, "[ CPU] ABEND %04d @ %04d\n", state.ir, state.pc);
+      fprintf(CONSOLE, "[ CPU] ABEND\n");
+      state.debug = 1;
+      dump_state(CONSOLE, &state);
       exit(EXIT_FAILURE);
     }
+    
+    dump_state(CONSOLE, &state);
 
   } while(running);
 
   fprintf(CONSOLE, "[ CPU] End. Executed %d instructions.\n",
-	  state.cycles);  
+	  state.cycles);
   
   return EXIT_SUCCESS;
 }
- 
-
-
-
 
