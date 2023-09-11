@@ -18,7 +18,8 @@ extern char *optarg;
 extern int   opterr;
 
 
-int load_memory(char *filename);
+int load_program(char *filename, int debug);
+
 int dump_memory(FILE *fp);
 
 int redirect(int ifd, int ofd);
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 
   opterr = 0;
 
-  setlinebuf(stderr);
+  setlinebuf(CONSOLE);
   
   while((opt = getopt(argc, argv, OPTSTR)) != EOF)
     switch(opt) {
@@ -81,7 +82,6 @@ int main(int argc, char *argv[])
     case 0:			/* child */
 
       redirect(memory_to_cpu[IO_RD], cpu_to_memory[IO_WR]);
-      
       execl("./"MEMORY, MEMORY, (char *)NULL);
       break;
 
@@ -89,15 +89,16 @@ int main(int argc, char *argv[])
     default:			/* parent */
 
       redirect(cpu_to_memory[IO_RD], memory_to_cpu[IO_WR]);
+
       
-      if (load_memory(program_file) < 0) {
+      if (load_program(program_file, debug) < 0) {
 	perror("loader:load_memory");
 	return EXIT_FAILURE;
 	/* NOTREACHED */
       }
 
       if (debug)
-	dump_memory(stderr);
+	dump_memory(CONSOLE);
 
 
       execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
@@ -128,7 +129,7 @@ int redirect(int ifd, int ofd)
 
 #define SEP " \t"
 
-int load_memory(char *filename)
+int load_program(char *filename, int debug)
 {
   FILE *fp;
   char  buf[BUFSIZ];
@@ -137,7 +138,7 @@ int load_memory(char *filename)
   int   value;
   char *nl;
 
-  fprintf(stderr, "[LOAD] %s\n", filename);
+  
   
   if (!filename) {
     errno = EINVAL;
@@ -157,8 +158,18 @@ int load_memory(char *filename)
     
     if ((nl = strchr(buf, '\n')))
       *nl = '\0';
+
+    if (strlen(buf) == 0)
+      continue;
+
+    if (debug)
+      fprintf(CONSOLE, "[LOAD] [l#] %3d [addr] %04d [buf] %s\n",
+	      lineno, address, buf);
     
     if (sscanf(buf, ". %d", &value)) {
+      if (debug)
+	fprintf(CONSOLE, "[LOAD] [l#] %3d [addr] %04d -> %04d\n",
+		lineno, address, value);
       address = value;
       continue;
     }
@@ -172,6 +183,8 @@ int load_memory(char *filename)
   }
 
   fclose(fp);
+
+  fprintf(CONSOLE, "[LOAD] %s - %d lines\n", filename, lineno);    
   
   return 0;
 }
