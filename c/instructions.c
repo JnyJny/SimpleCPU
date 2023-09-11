@@ -107,7 +107,7 @@ int read_memory_check(int address, state_t *state)
 {
 
   if (CHECK_ADDRESS(address, state->mode)) {
-    fprintf(CONSOLE,"SEGFAULT: [pc] %08d [ir] %08d [A] %08d\n",
+    fprintf(CONSOLE,"SEGFAULT: [ir] %08d [pc] %08d [addr] %08d\n",
 	    state->pc,
 	    state->ir,
 	    address);
@@ -485,11 +485,12 @@ void iret(state_t *state)
 {
   /* IRet: return from system call */
   
-  state->interrupts = 1;
-  state->mode = USER;
   /* pop PC and SP from system stack */
   state->pc = read_memory_check(++state->sp, state);
   state->sp = read_memory_check(++state->sp, state);
+  /* enable interrupts and return to user mode */
+  state->interrupts = 1;
+  state->mode = USER;
 }
 
 void end(state_t *state)
