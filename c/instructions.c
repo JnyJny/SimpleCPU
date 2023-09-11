@@ -274,18 +274,20 @@ void put_port(state_t *state)
   int port;
   
   port = read_memory_check(++state->pc, state);
+
+  if (state->debug) {
+    fprintf(CONSOLE, "[COUT] port=%d AC=%d\n",
+	    port,
+	    state->ac);
+    return;
+  }
   
   switch(port) {
     case 1:
-      fprintf(CONSOLE, "[COUT] port=%d AC=%d\n",
-	      port,
-	      state->ac);
+      fprintf(CONSOLE, "%d", state->ac);
       break;
     case 2:
-      fprintf(CONSOLE, "[COUT] port=%d AC[%d]=%c\n",
-	      port,
-	      state->ac,
-	      state->ac);
+      fprintf(CONSOLE, "%c", state->ac);
       break;
     default:
       break;
