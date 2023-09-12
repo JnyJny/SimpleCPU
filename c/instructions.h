@@ -6,6 +6,7 @@
 #include "cpu.h"
 
 typedef enum {
+  INVALID=0,
   LDV  = 1,			/* Load the value into AC */
   LDA  = 2,			/* Load the value at address into AC */
   LDI  = 3,			/* Load indirect from value at address into AC */

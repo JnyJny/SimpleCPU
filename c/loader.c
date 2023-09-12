@@ -12,14 +12,20 @@
 #include "cpu.h"
 #include "memory.h"
 #include "io.h"
+#include "dis.h"
 
-#define OPTSTR "df:nt:"
+#define OPTSTR "dDf:nt:"
 extern char *optarg;
 extern int   opterr;
 
 #define USAGE_MSG \
-  "usage: %s -f program_file [-d] [-n] [-t timer_interval]\n"
+  "usage: %s -f program_file [-d] [-D] [-n] [-t timer_interval]\n"
 
+#define OPTIONS_MSG \
+  "\t-d\tEnable debugging output.\n"\
+  "\t-D\tDisassemble memory.\n"\
+  "\t-n\tEnable dry-run, skip execution.\n"\
+  "\t-t int\tSpecifying a timer interrupt interval.\n"
 
 int load_program(char *filename, int debug);
 
@@ -33,6 +39,7 @@ int main(int argc, char *argv[])
   int pid;
   int debug = 0;
   int dryrun = 0;
+  int disassemble = 0;
   char *program_file = NULL;
   char *memory_dump = NULL;
 
@@ -49,6 +56,9 @@ int main(int argc, char *argv[])
       case 'd':
 	debug = 1;
 	break;
+      case 'D':
+	disassemble = 1;
+	break;
       case 'f':
 	program_file = optarg;
 	break;
@@ -61,6 +71,7 @@ int main(int argc, char *argv[])
       case '?':
       case 'h':
 	fprintf(stderr, USAGE_MSG, basename(argv[0]));
+	fputs(OPTIONS_MSG, stderr);
 	return EXIT_FAILURE;
 	/* NOTREACHED */
 	break;
@@ -68,7 +79,8 @@ int main(int argc, char *argv[])
 
   if (!program_file) {
     fprintf(stderr, USAGE_MSG,basename(argv[0]));
-    fprintf(stderr,"\tProgram file name required.\n");
+    fputs(OPTIONS_MSG, stderr);
+    fputs("\tProgram file name required.\n", stderr);
     return EXIT_FAILURE;
   }
 
@@ -101,15 +113,17 @@ int main(int argc, char *argv[])
 	/* NOTREACHED */
       }
 
-      if (debug)
+      if (debug) {
 	dump_memory(CONSOLE);
+      }
+      if (disassemble) {
+	disassemble_memory(CONSOLE, ALL_REGIONS);	
+      }
 
       if (!dryrun) {
 	execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
 	/* NOTREACHED */
       }
-
-      dump_memory(CONSOLE);
       
       break;
   }
@@ -157,7 +171,8 @@ int load_program(char *filename, int debug)
     return -1;
   }
 
-  fprintf(CONSOLE, "[LOAD] %s\n", filename);
+  if (debug)
+    fprintf(CONSOLE, "[LOAD] %s\n", filename);
 
   lineno = 0;
 
@@ -173,12 +188,12 @@ int load_program(char *filename, int debug)
       continue;
 
     if (debug)
-      fprintf(CONSOLE, "[LOAD] [l#] %3d [addr] %04d [buf] %s\n",
+      fprintf(CONSOLE, "[LOAD] [%3d:%04d] [buf] %s\n",
 	      lineno, address, buf);
     
     if (sscanf(buf, ". %d", &value)) {
       if (debug)
-	fprintf(CONSOLE, "[LOAD] [l#] %3d [addr] %04d -> %04d\n",
+	fprintf(CONSOLE, "[LOAD] [%3d:%04d] -> %04d\n",
 		lineno, address, value);
       address = value;
       continue;
@@ -220,7 +235,7 @@ int dump_memory(FILE *fp) {
 
     cp = buf;
     
-    cp += sprintf(cp, "[%04d] ", line * WORDS_PER_LINE);
+    cp += sprintf(cp, "[DUMP] [%04d] ", line * WORDS_PER_LINE);
 
     sum = 0;
     

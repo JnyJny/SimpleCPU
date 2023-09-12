@@ -1,7 +1,7 @@
 
 TARGETS = cpu memory loader
 
-SRC = cpu.c memory.c io.c instructions.c loader.c
+SRC = cpu.c memory.c io.c instructions.c loader.c dis.c
 OBJ = $(SRC:.c=.o)
 HDR = $(SRC:.c=.h)
 
@@ -22,8 +22,8 @@ cpu: $(CPU_OBJS) $(CPH_HDRS)
 memory: memory.o io.h
 	cc -o $@ $< $(LFLAGS)
 
-loader: loader.o io.o io.h 
-	cc -o $@ $< io.o $(LFLAGS)
+loader: loader.o io.o dis.o dis.h io.h 
+	cc -o $@ $< io.o dis.o $(LFLAGS)
 
 clean:
 	rm -f $(OBJ) trace.memory
