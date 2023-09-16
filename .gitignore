@@ -1,5 +1,7 @@
 *.o
+asm
 cpu
+dis
 loader
 memory
 trace.memory
