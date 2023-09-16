@@ -1,7 +1,7 @@
 
 TARGETS = cpu memory loader asm dis
 
-SRC = cpu.c instruction.c memory.c io.c microcode.c object.c
+SRC = cpu.c io.c instruction.c memory.c microcode.c object.c
 OBJ = $(SRC:.c=.o)
 HDR = $(SRC:.c=.h) constants.h
 
@@ -13,7 +13,7 @@ all: $(TARGETS)
 .c.o: $(SRC) $(HDR)
 	cc -c $< $(CFLAGS) $(DEBUG)
 
-CPU_OBJS= cpu.o io.o instruction.o microcode.o
+CPU_OBJS= cpu.o instruction.o microcode.o
 CPU_HDRS= $(CPU_OBJS:.o=.h)
 
 LDR_OBJS= loader.o io.o object.o
@@ -40,8 +40,27 @@ asm: asm.c $(ASM_OBJS) $(ASM_HDRS)
 dis: dis.c $(DIS_OBJS) $(DIS_HDRS)
 	cc -o $@ $(DIS_OBJS) $(LFLAGS)
 
+
+tests: asm program1.o sample1.o sample2.o sample3.o sample4.o
+
+program1.o: tests/program1.s
+	./asm -f $< -o $@
+
+sample1.o: tests/sample1.s
+	./asm -f $< -o $@
+
+sample2.o: tests/sample2.s
+	./asm -f $< -o $@
+
+sample3.o: tests/sample3.s
+	./asm -f $< -o $@
+
+sample4.o: tests/sample4.s
+	./asm -f $< -o $@
+
+
 clean:
-	rm -f $(OBJ) trace.memory
+	rm -f $(OBJ) trace.memory *.o
 
 immaculate: clean
 	rm -f $(TARGETS)
