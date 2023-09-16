@@ -5,10 +5,16 @@
 
 #include <unistd.h>
 
+typedef int word_t;
 
-#define USER_MODE      0
-#define TIMER_MODE     1
-#define INTERRUPT_MODE 2
+typedef struct {
+  word_t base;
+  word_t count;
+  word_t stack;
+} segment_t;
+
+#define USER_MODE   0
+#define SYSTEM_MODE 1
 
 #define USER_PROGRAM_LOAD         0
 #define TIMER_PROGRAM_LOAD     1000
@@ -25,20 +31,15 @@
 #define USTACK_BASE  999
 #define SSTACK_BASE 1999
 
-#define CHECK_ADDRESS(ADDR, MODE) (((MODE)==USER_MODE) && ((ADDR) > USTACK_BASE))
-
-#define IS_ADDRESS_IN_RANGE(ADDR, START, STOP) (((ADDR)>=(START)) && ((ADDR)<(STOP)))
-#define IS_USER_ADDRESS(ADDR) IS_ADDRESS_IN_RANGE(ADDR, USER_PROGRAM_LOAD, TIMER_PROGRAM_LOAD)
-#define IS_TIMER_ADDRESS(ADDR) IS_ADDRESS_IN_RANGE(ADDR, TIMER_PROGRAM_LOAD, INTERRUPT_PROGRAM_LOAD)
-#define IS_INTERRUPT_ADDRESS(ADDR) IS_ADDRESS_IN_RANGE(ADDR, INTERRUPT_PROGRAM_LOAD, END_OF_MEMORY)
-
-#define CONSOLE stderr
+#define ADDRESS_FAULT(ADDR, MODE) (((MODE)==USER_MODE) && ((ADDR) > USTACK_BASE))
+#define UADDRESS(ADDR) (((ADDR)>=USER_PROGRAM_LOAD) && ((ADDR)<=USTACK_BASE))
+#define SADDRESS(ADDR) (((ADDR)>=TIMER_PROGRAM_LOAD) && ((ADDR)<=SSTACK_BASE))
 
 #define MEM_WR_CHANNEL STDOUT_FILENO
 #define MEM_RD_CHANNEL STDIN_FILENO
 
-#define MAGIC 0x6f6a6521
+#define CONSOLE stderr
 
-typedef int word_t;
+#define MAGIC 0x6f6a6521
 
 #endif	/* CONSTANTS_H */
