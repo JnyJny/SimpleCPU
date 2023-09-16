@@ -50,12 +50,19 @@ int main(int argc, char *argv[])
 	
       case '?':
       case 'h':
-	fprintf(stderr,"Usage: %s\n",
+	fprintf(stderr,"Usage: %s -f input [-o output[\n",
 		basename(argv[0]));
 	return EXIT_FAILURE;
 	/* NOTREACHED */
 	break;
     }
+
+  if (!src) {
+    fprintf(stderr,"Usage: %s -f input [-o output]\n",
+	    basename(argv[0]));
+    return EXIT_FAILURE;
+  }
+  
 
   dispatch_table = alloc_dispatch_table();
 
