@@ -1,4 +1,6 @@
-/* instructions.c (ejo@ufo) 10 Sep 23  Modified: 10 Sep 23  09:34 */
+/* microcode.c (ejo@ufo) 10 Sep 23  Modified: 10 Sep 23  09:34 */
+
+#define MICROCODE_C
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,10 +9,8 @@
 
 #include "constants.h"
 #include "microcode.h"
-#include "instruction.h"
-#include "io.h"
 
-microcode_f microcode[NUM_OPCODES] = {
+microcode_f microcode_table[NUM_OPCODES] = {
   invalid_instruction,
   load_value,	       
   load_addr,	       
@@ -67,303 +67,323 @@ microcode_f microcode[NUM_OPCODES] = {
 /* Instruction Implementation
  */
 
-#define STATE_P(P) ((state_t *)(P))
 
-void invalid_instruction(void *state)
+
+void invalid_instruction(cpu_t *cpu)
 {
-  fprintf(CONSOLE,"Invalid Instruction: [pc] %08d [ir] %08d\n",
-	  STATE_P(state)->pc, STATE_P(state)->ir);
+  cpu->c_fault = 1;
+  cpu->e_execute = 1;
+  cpu->e_invalid = 1;
 }
 
 
-void load_value(void *state)
+void load_value(cpu_t *cpu)
 {
   /* Load value: Load the value into AC */
-  
-  // STATE_P(state)->ac = STATE_P(state)->read_memory(++STATE_P(state)->pc);
 
-  STATE_P(state)->ac = STATE_P(state)->instruction.operand;
+  cpu->r_ac = cpu->instruction.operand;
 }
 
-void load_addr(void *state)
+void load_addr(cpu_t *cpu)
 {
   /* Load addr: Load the value at address into AC */
 
-  STATE_P(state)->ac = STATE_P(state)->read_memory(STATE_P(state)->instruction.operand);
+  cpu->load(cpu->instruction.operand, &cpu->r_ac);
 }
 
-void load_indirect(void *state)
+void load_indirect(cpu_t *cpu)
 {
   /* LoadInd addr: Load value from address at address */
-  int addr;
+  word_t addr;
 
-  addr = STATE_P(state)->read_memory(STATE_P(state)->instruction.operand);
-  STATE_P(state)->ac = STATE_P(state)->read_memory(addr);
+  cpu->load(cpu->instruction.operand, &addr);
+  cpu->load(addr, &cpu->r_ac);
 }
 
-void load_index_x(void *state)
+void load_index_x(cpu_t *cpu)
 {
   /* LoadIdxX addr: Load value (addr+X) into AC */
-  int addr;
+  word_t addr;
 
-  addr = STATE_P(state)->instruction.operand;
-  STATE_P(state)->ac = STATE_P(state)->read_memory(addr + STATE_P(state)->x);
+  cpu->load(cpu->instruction.operand + cpu->r_x, &cpu->r_ac);
 }
 
-void load_index_y(void *state)
+void load_index_y(cpu_t *cpu)
 {
   /* LoadIdxY addr: Load value (addr+Y) into AC */
-  int addr;
   
-  addr = STATE_P(state)->instruction.operand;
-  STATE_P(state)->ac = STATE_P(state)->read_memory(addr + STATE_P(state)->y);
+  cpu->load(cpu->instruction.operand + cpu->r_y, &cpu->r_ac);
 }
 
-void load_sp_x(void *state)
+void load_sp_x(cpu_t *cpu)
 {
-  /* LoadSpX: Load from (Sp+X) info AC */
-  int addr;
-
-  addr = STATE_P(state)->sp + STATE_P(state)->x;
+  /* LoadSpX: Load from (SP+X) info AC */
   
-  STATE_P(state)->ac = STATE_P(state)->read_memory(addr);
+  cpu->load(cpu->r_sp + cpu->r_x, &cpu->r_ac);
 }
 
-void store_addr(void *state)
+void store_addr(cpu_t *cpu)
 {
   /* Store addr: Store AC into address */
-  int addr;
 
-
-  STATE_P(state)->write_memory(STATE_P(state)->instruction.operand, STATE_P(state)->ac);
+  cpu->store(cpu->instruction.operand, cpu->r_ac);
 }
 
-void get(void *state)
+void get(cpu_t *cpu)
 {
-  /* Get: random into from 1 to 100 into AC */
+  /* Get: random int from 1 to 100 into AC */
   
-  STATE_P(state)->ac = 1 + (rand() % 100);
+  cpu->r_ac = 1 + (rand() % 100);
 }
 
-void put_port(void *state)
+void put_port(cpu_t *cpu)
 {
   /* Put port: port1, write AC as int, port2 write AC as char */
-  int port;
-  
-  port = STATE_P(state)->instruction.operand;
 
-  if (STATE_P(state)->debug) {
-    fprintf(CONSOLE, "[COUT] port=%d AC=%d\n",
-	    port,
-	    STATE_P(state)->ac);
+  if (cpu->c_debug) {
+    fprintf(CONSOLE, "[PUT] port=%d AC=%d\n",
+	    cpu->instruction.operand,
+	    cpu->r_ac);
     return;
   }
   
-  switch(port) {
+  switch(cpu->instruction.operand) {
     case 1:
-      fprintf(CONSOLE, "%d", STATE_P(state)->ac);
+      fprintf(CONSOLE, "%d", cpu->r_ac);
       break;
     case 2:
-      fprintf(CONSOLE, "%c", STATE_P(state)->ac);
+      fprintf(CONSOLE, "%c", cpu->r_ac);
       break;
     default:
+      cpu->c_fault = 1;
+      cpu->e_execute = 1;
+      cpu->e_range = 1;
       break;
   }
 }
 
-void add_x(void *state)
+void add_x(cpu_t *cpu)
 {
   /* AddX: add X to AC */
   
-  STATE_P(state)->ac += STATE_P(state)->x;
+  cpu->r_ac += cpu->r_x;
 }
 
-void add_y(void *state)
+void add_y(cpu_t *cpu)
 {
   /* AddY: add Y to AC */
   
-  STATE_P(state)->ac += STATE_P(state)->y;
+  cpu->r_ac += cpu->r_y;
 }
 
-void sub_x(void *state)
+void sub_x(cpu_t *cpu)
 {
   /* SubX: subtract X from AC */
   
-  STATE_P(state)->ac -= STATE_P(state)->x;
+  cpu->r_ac -= cpu->r_x;
 }
 
-void sub_y(void *state)
+void sub_y(cpu_t *cpu)
 {
   /* SubY: subtract Y from AC */
   
-  STATE_P(state)->ac -= STATE_P(state)->y;
+  cpu->r_ac -= cpu->r_y;
 }
 
-void copy_to_x(void *state)
+void copy_to_x(cpu_t *cpu)
 {
   /* CopyToX: Copy AC to X */
   
-  STATE_P(state)->x = STATE_P(state)->ac;
+  cpu->r_x = cpu->r_ac;
 }
 
-void copy_from_x(void *state)
+void copy_from_x(cpu_t *cpu)
 {
   /* CopyFromX: Copy X to AC */
   
-  STATE_P(state)->ac = STATE_P(state)->x;
+  cpu->r_ac = cpu->r_x;
 }
 
-void copy_to_y(void *state)
+void copy_to_y(cpu_t *cpu)
 {
   /* CopyToY: Copy AC to Y */
   
-  STATE_P(state)->y = STATE_P(state)->ac;
+  cpu->r_y = cpu->r_ac;
 }
 
-void copy_from_y(void *state)
+void copy_from_y(cpu_t *cpu)
 {
   /* CopyFromY: Copy Y to AC */
   
-  STATE_P(state)->ac = STATE_P(state)->y;
+  cpu->r_ac = cpu->r_y;
 }
 
-void copy_to_sp(void *state)
+void copy_to_sp(cpu_t *cpu)
 {
   /* CopyToSP: Copy AC to SP */
   
-  STATE_P(state)->sp = STATE_P(state)->ac;
+  cpu->r_sp = cpu->r_ac;
 }
 
-void copy_from_sp(void *state)
+void copy_from_sp(cpu_t *cpu)
 {
   /* CopyFromSP: Copy SP to AC */
   
-  STATE_P(state)->ac = STATE_P(state)->sp;
+  cpu->r_ac = cpu->r_sp;
 }
 
-void jump_addr(void *state)
+void jump_addr(cpu_t *cpu)
 {
   /* Jump Addr: Jump to the address */
 
-  STATE_P(state)->pc = STATE_P(state)->instruction.operand;
+  cpu->r_pc = cpu->instruction.operand;
 }
 
-void jump_eq_addr(void *state)
+void jump_eq_addr(cpu_t *cpu)
 {
   /* JumpIfEqual addr: jump to addr if AC is zero */
   
-  if (STATE_P(state)->ac == 0)
-    STATE_P(state)->pc = STATE_P(state)->instruction.operand;
+  if (cpu->r_ac == 0)
+    cpu->r_pc = cpu->instruction.operand;
   else
-    STATE_P(state)->pc++;
+    cpu->r_pc++;		/* advance PC past operand */
 }
 
-void jump_ne_addr(void *state)
+void jump_ne_addr(cpu_t *cpu)
 {
   /* JumpIfNotEqual addr: Jump to addr if AC is not zero */
 
-  if (STATE_P(state)->ac != 0)
-    STATE_P(state)->pc = STATE_P(state)->instruction.operand;
+  if (cpu->r_ac != 0)
+    cpu->r_pc = cpu->instruction.operand;
   else
-    STATE_P(state)->pc++;
+    cpu->r_pc++;		/* advance PC past operand */
 }
 
-void call_addr(void *state)
+void call_addr(cpu_t *cpu)
 {
   /* Call addr: Push return address onto stack, jump to addr */
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, STATE_P(state)->pc+1);
-  STATE_P(state)->pc = STATE_P(state)->instruction.operand;
+  
+  cpu->store(cpu->r_sp, cpu->r_pc+1);
+  cpu->r_sp--;
+  cpu->r_pc = cpu->instruction.operand;
 }
 
-void ret(void *state)
+void ret(cpu_t *cpu)
 {
   /* Ret: Pop return address from stack, jump to address */
 
-  STATE_P(state)->pc = STATE_P(state)->read_memory(++STATE_P(state)->sp);
+  cpu->r_sp++;
+  cpu->load(cpu->r_sp, &cpu->r_pc);
+  // TODO check for stack  [under|over] flow
 }
 
-void inc_x(void *state)
+void inc_x(cpu_t *cpu)
 {
   /* IncX: increment the value in X */
-  STATE_P(state)->x++;
+  cpu->r_x++;
 }
 
-void dec_x(void *state)
+void dec_x(cpu_t *cpu)
 {
   /* DecX: decrement the value in X */
-  STATE_P(state)->x--;
+  cpu->r_x--;
 }
 
-void push(void *state)
+void push(cpu_t *cpu)
 {
   /* Push: push AC onto Stack */
 
-  /* TODO  check for stack overflow */
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, STATE_P(state)->ac);
+  cpu->store(cpu->r_sp--, cpu->r_ac);
+  // TODO check for stack  [under|over] flow
 }
 
-void pop(void *state)
+void pop(cpu_t *cpu)
 {
   /* Pop: pop stack into AC */
 
-  /* TODO  check for stack underflow */
-  STATE_P(state)->ac = STATE_P(state)->read_memory(STATE_P(state)->sp++);
+  cpu->load(++cpu->r_sp, &cpu->r_ac);
+  // TODO check for stack  [under|over] flow
 }
 
-void interrupt(void *state)
+void interrupt(cpu_t *cpu)
 {
-  /* Int: perform system call */
-  int sp;
+  /* Int: perform system call
+   * Switch to system mode and stack
+   * Push SP and PC onto system stack
+   * Disable interrupts
+   */
   
-  if (!STATE_P(state)->interrupts)
+  word_t u_sp;
+  word_t u_pc;
+  
+  if (!cpu->c_interrupts)
     return;
   
-  STATE_P(state)->mode = INTERRUPT_MODE;
-  STATE_P(state)->interrupts = 0;
+  cpu->c_mode = SYSTEM_MODE;
+  cpu->c_interrupts = 0;
 
-  sp = STATE_P(state)->sp;
-  STATE_P(state)->sp = SSTACK_BASE;
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, sp);
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, STATE_P(state)->pc);
-  STATE_P(state)->pc = INTERRUPT_PROGRAM_LOAD;
+  u_sp = cpu->r_sp;
+  u_pc = cpu->r_pc;
+  
+  cpu->r_sp = SSTACK_BASE;
+  cpu->store(cpu->r_sp--, u_sp);
+  cpu->store(cpu->r_sp--, u_pc + 1);
+  
+  cpu->r_pc = INTERRUPT_PROGRAM_LOAD;
+
+  // TODO check for stack  [under|over] flow
 }
 
-void timer_interrupt(state_t *state)
+void timer_interrupt(cpu_t *cpu)
 {
-  int usp;
-  int upc;
+  /* Timer Interrupt
+   * Push PC and SP onto system stack
+   * Disable interrupts
+   * Switch to system mode
+   * Swithc to system stack
+   */
+  word_t u_sp;
+  word_t u_pc;
   
-  if (!STATE_P(state)->interrupts)
+  if (!cpu->c_interrupts)
     return ;
   
-  STATE_P(state)->mode = TIMER_MODE;
-  STATE_P(state)->interrupts = 0;
+  cpu->c_mode = SYSTEM_MODE;
+  cpu->c_interrupts = 0;
 
-  usp = STATE_P(state)->sp;
-  upc = STATE_P(state)->pc;
+  u_sp = cpu->r_sp;
+  u_pc = cpu->r_pc;
     
-  STATE_P(state)->sp = SSTACK_BASE;
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, usp);
-  STATE_P(state)->write_memory(STATE_P(state)->sp--, upc);
-  STATE_P(state)->pc = TIMER_PROGRAM_LOAD;
+  cpu->r_sp = SSTACK_BASE;
+  cpu->store(cpu->r_sp--, u_sp);
+  cpu->store(cpu->r_sp--, u_pc);
+  
+  cpu->r_pc = TIMER_PROGRAM_LOAD;
+
+  // TODO check for stack  [under|over] flow
 }
 
-void iret(void *state)
+void iret(cpu_t *cpu)
 {
-  /* IRet: return from system call */
-
+  /* IRet: return from system call
+   * Pop PC and SP from system stack
+   */
   
   /* pop PC and SP from system stack */
-  STATE_P(state)->pc = STATE_P(state)->read_memory(++STATE_P(state)->sp);
-  STATE_P(state)->sp = STATE_P(state)->read_memory(++STATE_P(state)->sp);
+  cpu->load(++cpu->r_sp, &cpu->r_pc);
+  cpu->load(++cpu->r_sp, &cpu->r_sp);
+  
   /* enable interrupts and return to user mode */
-  STATE_P(state)->interrupts = 1;
-  STATE_P(state)->mode = USER_MODE;
+  cpu->c_interrupts = 1;
+  cpu->c_mode = USER_MODE;
+
+  // TODO check for stack  [under|over] flow
 }
 
-void end(void *state)
+void end(cpu_t *cpu)
 {
   /* End executation */
+  cpu->c_stop = 1;
 }
 
 

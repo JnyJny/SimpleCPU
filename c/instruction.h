@@ -39,20 +39,18 @@ typedef enum {
   NUM_OPCODES,
 } opcode_t;
 
-
-typedef void (*microcode_f)(void *);
+typedef void (*gmicrocode_f)(void *cpu);
 
 typedef struct {
   opcode_t      opcode;
   unsigned int  has_operand:1;
   unsigned int  mode:3;
   unsigned int  pad:28;
-  microcode_f   microcode;
+  gmicrocode_f  microcode;
   int           address;
   int           operand;
   char         *mnemonic;
   char         *description;
-
 } instruction_t;
 
 

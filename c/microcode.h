@@ -4,41 +4,46 @@
 #define MICROCODE_H
 
 #include "cpu.h"
-#include "instruction.h"
 
-void invalid_instruction(void *state);
-void load_value(void *state);
-void load_addr(void *state);
-void load_indirect(void *state);
-void load_index_x(void *state);
-void load_index_y(void *state);
-void load_sp_x(void *state);
-void store_addr(void *state);
-void get(void *state);
-void put_port(void *state);
-void add_x(void *state);
-void add_y(void *state);
-void sub_x(void *state);
-void sub_y(void *state);
-void copy_to_x(void *state);
-void copy_from_x(void *state);
-void copy_to_y(void *state);
-void copy_from_y(void *state);
-void copy_to_sp(void *state);
-void copy_from_sp(void *state);
-void jump_addr(void *state);
-void jump_eq_addr(void *state);
-void jump_ne_addr(void *state);
-void call_addr(void *state);
-void ret(void *state);
-void inc_x(void *state);
-void dec_x(void *state);
-void push(void *state);
-void pop(void *state);
-void interrupt(void *state);
-void iret(void *state);
-void end(void *state);
+typedef void (*microcode_f)(cpu_t *cpu);
 
-void timer_interrupt(state_t *state);
+void invalid_instruction(cpu_t *cpu);
+void load_value(cpu_t *cpu);
+void load_addr(cpu_t *cpu);
+void load_indirect(cpu_t *cpu);
+void load_index_x(cpu_t *cpu);
+void load_index_y(cpu_t *cpu);
+void load_sp_x(cpu_t *cpu);
+void store_addr(cpu_t *cpu);
+void get(cpu_t *cpu);
+void put_port(cpu_t *cpu);
+void add_x(cpu_t *cpu);
+void add_y(cpu_t *cpu);
+void sub_x(cpu_t *cpu);
+void sub_y(cpu_t *cpu);
+void copy_to_x(cpu_t *cpu);
+void copy_from_x(cpu_t *cpu);
+void copy_to_y(cpu_t *cpu);
+void copy_from_y(cpu_t *cpu);
+void copy_to_sp(cpu_t *cpu);
+void copy_from_sp(cpu_t *cpu);
+void jump_addr(cpu_t *cpu);
+void jump_eq_addr(cpu_t *cpu);
+void jump_ne_addr(cpu_t *cpu);
+void call_addr(cpu_t *cpu);
+void ret(cpu_t *cpu);
+void inc_x(cpu_t *cpu);
+void dec_x(cpu_t *cpu);
+void push(cpu_t *cpu);
+void pop(cpu_t *cpu);
+void interrupt(cpu_t *cpu);
+void iret(cpu_t *cpu);
+void end(cpu_t *cpu);
+
+void timer_interrupt(cpu_t *cpu);
+
+#ifndef MICROCODE_C
+extern microcode_f microcode_table[NUM_OPCODES];
+#endif
 
 #endif	/* MICROCODE_H */

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "constants.h"
 #include "instruction.h"
 
 
@@ -92,26 +93,26 @@ int iprintf(FILE *fp, instruction_t *instruction)
     errno = EINVAL;
     return -1;
   }
-  char mode[3] = "UTI";
+
+  if (UADDRESS(instruction->address))
+    instruction->mode = USER_MODE;
+  else
+    instruction->mode = SYSTEM_MODE;
   
   if (instruction->has_operand) {
-	fprintf(fp, "[ DIS] [%04d:%c] %4d:%16s %8d // %3s %s\n",
-		instruction->address,
-		mode[instruction->mode],
-		instruction->opcode,
-		instruction->mnemonic,
-		instruction->operand,
-		IS_CTI(instruction->opcode)?"CTI":"",
-		instruction->description);
+    fprintf(fp, "%08d %-10s %4d // %c %-s\n",
+	    instruction->address,
+	    instruction->mnemonic,
+	    instruction->operand,
+	    instruction->mode?'S':'U',	    
+	    instruction->description);
 	return 0;
   }
 
-  fprintf(fp, "[ DIS] [%04d:%c] %04d:%16s          // %3s %s\n",
+  fprintf(fp, "%08d %-10s      // %c %-s\n",
 	  instruction->address,
-	  mode[instruction->mode],
-	  instruction->opcode,
 	  instruction->mnemonic,
-	  IS_CTI(instruction->opcode)?"CTI":"",
+	  instruction->mode?'S':'U',	  
 	  instruction->description);
 
   return 0;
