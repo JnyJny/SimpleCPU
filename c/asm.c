@@ -215,19 +215,13 @@ int assemble_program_oldstyle(FILE *fp, word_t *memory, size_t memsz)
     if (strlen(buf) == 0)
       continue;
 
-    fprintf(CONSOLE, "[LOAD] [%3d:%04d] [buf] %s\n",
-	    lineno, address, buf);
-    
     if (sscanf(buf, ". %d", &value)) {
-      fprintf(CONSOLE, "[LOAD] [%3d:%04d] -> %04d\n",
-	      lineno, address, value);
       address = value;
       continue;
     }
 
     if (sscanf(buf, "%d", &value)) {
       memory[address] = value;
-      //write_memory(address, value);
       address++;
       continue;
     }
