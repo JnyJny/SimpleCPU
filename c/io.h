@@ -7,14 +7,14 @@
 #define IO_WR 1
 
 typedef struct {
-  int address;
-  int value;
+  word_t address;
+  word_t value;
   unsigned int error:8;
   unsigned int op:1;
   unsigned int pad:7;
 } io_t;
 
-int read_memory(int address);
-int write_memory(int address, int value);
+word_t read_memory(word_t address);
+word_t write_memory(word_t address, word_t value);
 
 #endif	/* IO_H */

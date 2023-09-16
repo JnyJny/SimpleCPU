@@ -7,7 +7,7 @@
 #include "constants.h"
 #include "io.h"
 
-int read_memory(int address)
+word_t read_memory(word_t address)
 {
   io_t io = {address, 0, 0, IO_RD, 0};
   
@@ -20,7 +20,7 @@ int read_memory(int address)
   return io.value;
 }
 
-int write_memory(int address, int value)
+word_t write_memory(word_t address, word_t value)
 {
   io_t io = {address, value, 0, IO_WR, 0};
 
