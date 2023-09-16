@@ -3,6 +3,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+#include <unistd.h>
+
 
 #define USER_MODE      0
 #define TIMER_MODE     1
@@ -12,6 +14,13 @@
 #define TIMER_PROGRAM_LOAD     1000
 #define INTERRUPT_PROGRAM_LOAD 1500
 #define END_OF_MEMORY          2000
+
+#define USER_SEG      0
+#define TIMER_SEG     1
+#define INTERRUPT_SEG 2
+#define NSEGMENTS     3
+
+#define NWORDS                 END_OF_MEMORY
 
 #define USTACK_BASE  999
 #define SSTACK_BASE 1999
@@ -24,5 +33,12 @@
 #define IS_INTERRUPT_ADDRESS(ADDR) IS_ADDRESS_IN_RANGE(ADDR, INTERRUPT_PROGRAM_LOAD, END_OF_MEMORY)
 
 #define CONSOLE stderr
+
+#define MEM_WR_CHANNEL STDOUT_FILENO
+#define MEM_RD_CHANNEL STDIN_FILENO
+
+#define MAGIC 0x6f6a6521
+
+typedef int word_t;
 
 #endif	/* CONSTANTS_H */

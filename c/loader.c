@@ -2,36 +2,36 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "constants.h"
 #include "cpu.h"
 #include "memory.h"
 #include "io.h"
-#include "dis.h"
+#include "loader.h"
 
-#define OPTSTR "dDf:nt:"
+#define OPTSTR "df:t:"
 extern char *optarg;
 extern int   opterr;
 
 #define USAGE_MSG \
-  "usage: %s -f program_file [-d] [-D] [-n] [-t timer_interval]\n"
+  "usage: %s -f program_file [-d] [-t timer_interval]\n"
 
 #define OPTIONS_MSG \
   "\t-d\tEnable debugging output.\n"\
-  "\t-D\tDisassemble memory.\n"\
-  "\t-n\tEnable dry-run, skip execution.\n"\
   "\t-t int\tSpecifying a timer interrupt interval.\n"
+
+int redirect(int ifd, int ofd);
 
 int load_program(char *filename, int debug);
 
 int dump_memory(FILE *fp);
-
-int redirect(int ifd, int ofd);
 
 int main(int argc, char *argv[])
 {
@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
 
   int cpu_to_memory[2];
   int memory_to_cpu[2];
-  char *timer = "100";
+  
+  char *timer = DEFAULT_TIMER_INTERVAL;
 
   opterr = 0;
 
@@ -56,14 +57,8 @@ int main(int argc, char *argv[])
       case 'd':
 	debug = 1;
 	break;
-      case 'D':
-	disassemble = 1;
-	break;
       case 'f':
 	program_file = optarg;
-	break;
-      case 'n':
-	dryrun = 1;
 	break;
       case 't':
 	timer = optarg;
@@ -97,15 +92,19 @@ int main(int argc, char *argv[])
       break;
       
     case 0:			/* child */
+      if (debug)
+	fprintf(CONSOLE, "[LOAD] Launching memory subsystem.\n");
       redirect(memory_to_cpu[IO_RD], cpu_to_memory[IO_WR]);
-      execl("./"MEMORY, MEMORY, (char *)NULL);
+      execl("./"MEMORY, MEMORY, (debug)?"-d":"", (char *)NULL);
       break;
 
       
     default:			/* parent */
 
+      if (debug)
+	fprintf(CONSOLE, "[LOAD] Launching cpu subsystem.\n");
+      
       redirect(cpu_to_memory[IO_RD], memory_to_cpu[IO_WR]);
-
       
       if (load_program(program_file, debug) < 0) {
 	perror("loader:load_memory");
@@ -116,14 +115,8 @@ int main(int argc, char *argv[])
       if (debug) {
 	dump_memory(CONSOLE);
       }
-      if (disassemble) {
-	disassemble_memory(CONSOLE, ALL_REGIONS);	
-      }
 
-      if (!dryrun) {
-	execl("./"CPU, CPU, debug?"-d":"", "-t", timer, (char *)NULL);
-	/* NOTREACHED */
-      }
+      execl("./"CPU, CPU, (debug)?"-d":"", "-t", timer, (char *)NULL);
       
       break;
   }
@@ -134,90 +127,68 @@ int main(int argc, char *argv[])
 
 int redirect(int ifd, int ofd)
 {
-  if (ifd != STDIN_FILENO) {
-    if (dup2(ifd, STDIN_FILENO) != STDIN_FILENO)
+  if (ifd != MEM_RD_CHANNEL) {
+    if (dup2(ifd, MEM_RD_CHANNEL) != MEM_RD_CHANNEL)
       return -1;
     close(ifd);
   }
 
-  if (ofd != STDOUT_FILENO) {
-    if (dup2(ofd, STDOUT_FILENO) != STDOUT_FILENO)
+  if (ofd != MEM_WR_CHANNEL) {
+    if (dup2(ofd, MEM_WR_CHANNEL) != MEM_WR_CHANNEL)
       return -1;
     close(ofd);
   }
+  
   return 0;
 }
 
 
-#define SEP " \t"
 
 int load_program(char *filename, int debug)
 {
-  FILE *fp;
-  char  buf[BUFSIZ];
-  int   lineno;
-  int   address;
-  int   value;
-  char *nl;
-
-  
+  int fd;
+  int address;
   
   if (!filename) {
     errno = EINVAL;
     return -1;
   }
 
-  if (!(fp = fopen(filename, "r"))) {
+  if ((fd = open(filename, O_RDONLY)) < 0)
     return -1;
+
+  if (read(fd, &address, sizeof(address)) < 0){
+    perror("read:magic");
+    return -1;
+  }
+
+  if (address != MAGIC) {
+    errno = EBADF;
+    close(fd);
+    return -1;
+  }
+
+  for (address = USER_PROGRAM_LOAD; address < NWORDS; address++) {
+    int value;
+    if (read(fd, &value, sizeof(value)) < 0) {
+      perror("read");
+      return -1;
+    }
+    write_memory(address, value);
   }
 
   if (debug)
     fprintf(CONSOLE, "[LOAD] %s\n", filename);
 
-  lineno = 0;
-
-  address = USER_PROGRAM_LOAD;
-  
-  while (fgets(buf, 80, fp)) {
-    lineno ++;
-    
-    if ((nl = strchr(buf, '\n')))
-      *nl = '\0';
-
-    if (strlen(buf) == 0)
-      continue;
-
-    if (debug)
-      fprintf(CONSOLE, "[LOAD] [%3d:%04d] [buf] %s\n",
-	      lineno, address, buf);
-    
-    if (sscanf(buf, ". %d", &value)) {
-      if (debug)
-	fprintf(CONSOLE, "[LOAD] [%3d:%04d] -> %04d\n",
-		lineno, address, value);
-      address = value;
-      continue;
-    }
-
-    if (sscanf(buf, "%d", &value)) {
-      write_memory(address, value);
-      address++;
-      continue;
-    }
-    // unrecognized lines ignored
-  }
-
-  fclose(fp);
-
-  if (debug)
-    fprintf(CONSOLE, "[LOAD] %s - %d lines\n", filename, lineno);    
+  close(fd);
   
   return 0;
 }
 
 #define WORDS_PER_LINE 10
 
-int dump_memory(FILE *fp) {
+int dump_memory(FILE *fp)
+{
   int   address;
   int   value;
   char  buf[BUFSIZ];
@@ -255,5 +226,3 @@ int dump_memory(FILE *fp) {
   
   return 0;
 }
-
-

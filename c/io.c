@@ -4,18 +4,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "constants.h"
 #include "io.h"
-
-
 
 int read_memory(int address)
 {
   io_t io = {address, 0, 0, IO_RD, 0};
   
-  if (write(STDOUT_FILENO, &io, sizeof(io)) < 0)
+  if (write(MEM_WR_CHANNEL, &io, sizeof(io)) < 0)
     return -1;
 
-  if (read(STDIN_FILENO, &io, sizeof(io)) < 0)
+  if (read(MEM_RD_CHANNEL, &io, sizeof(io)) < 0)
     return -1;
 
   return io.value;
@@ -25,10 +24,10 @@ int write_memory(int address, int value)
 {
   io_t io = {address, value, 0, IO_WR, 0};
 
-  if (write(STDOUT_FILENO, &io, sizeof(io)) < 0)
+  if (write(MEM_WR_CHANNEL, &io, sizeof(io)) < 0)
     return -1;
 
-  if (read(STDIN_FILENO, &io, sizeof(io)) < 0) 
+  if (read(MEM_RD_CHANNEL, &io, sizeof(io)) < 0) 
     return -1;
 
   return 0;

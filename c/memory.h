@@ -5,8 +5,4 @@
 
 #define MEMORY "memory"
 
-#define NWORDS 2000
-
-
-
 #endif	/* MEMORY_H */

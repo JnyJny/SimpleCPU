@@ -17,16 +17,4 @@ typedef struct {
 int read_memory(int address);
 int write_memory(int address, int value);
 
-#define DUMP_IO(PREFIX, FP, IOP) \
-  fprintf((FP), "%s %c %c A:V:E:O:P=%08d:%08d:%02d:%1d:%05d\n", \
-	  (PREFIX)?(PREFIX):"", \
-	  (IOP)->op?'W':'R', \
-	 ((IOP)->error)?'E':'G',\
-	  (IOP)->address,\
-	  (IOP)->value,\
-	  (IOP)->error,\
-	  (IOP)->op,\
-	  (IOP)->pad);
-
-
 #endif	/* IO_H */
