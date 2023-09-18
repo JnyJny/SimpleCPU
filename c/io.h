@@ -3,6 +3,8 @@
 #ifndef IO_H
 #define IO_H
 
+#include "constants.h"		/* word_t definition */
+
 #define IO_RD 0
 #define IO_WR 1
 
