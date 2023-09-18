@@ -64,17 +64,37 @@ microcode_f microcode_table[NUM_OPCODES] = {
   end
 };
 
+#define PUSH(CPU, V) (CPU)->r_sp--, (CPU)->store(((CPU)->r_sp), (V))
+#define POP(CPU, V)  (CPU)->load((CPU)->r_sp, (V)), (CPU)->r_sp++, check_underflow((CPU))
 
-#define PUSH(CPU, V) (CPU)->store(((CPU)->r_sp), (V)); (CPU)->r_sp--
-
-#define POP(CPU, V)  (CPU)->r_sp++; (CPU)->load((CPU)->r_sp, (V))
- 
-
-
-/* Instruction Implementation
+/* Stack Notes:
+ * sp starts at STACK_BASE
+ * sp grows down
+ * - PUSH: decrement sp, write value to current stack head (sp)
+ * - POP: read value from top of stack (sp), increment sp
+ *
+ * Overflow:
+ * - hard to check, stack would have to crash into instructions or data
+ * - checking requires stack size limits/redzone
+ * 
+ * Underflow: pop when SP == stack base
+ * - userland stack underflow results in a permission fault (if not checked)
+ * - kernelland stack underflow results in a memory error (if not checked)
  */
 
 
+void check_underflow(cpu_t *cpu)
+{
+  if (cpu->r_sp <= ((cpu->c_mode == USER_MODE)?USTACK_BASE:SSTACK_BASE)) 
+    return;
+
+  cpu->c_fault = 1;
+  cpu->e_underflow =1;
+}
+
+
+/* Instruction Implementations
+ */
 
 void invalid_instruction(cpu_t *cpu)
 {
@@ -271,6 +291,7 @@ void call_addr(cpu_t *cpu)
   /* Call addr: Push return address onto stack, jump to addr */
 
   PUSH(cpu, cpu->r_pc+1);
+  
   cpu->r_pc = cpu->instruction.operand;
 }
 
@@ -300,8 +321,6 @@ void push(cpu_t *cpu)
   /* Push: push AC onto Stack */
 
   PUSH(cpu, cpu->r_ac);
-
-  // TODO check for stack  [under|over] flow
 }
 
 void pop(cpu_t *cpu)
@@ -309,8 +328,6 @@ void pop(cpu_t *cpu)
   /* Pop: pop stack into AC */
 
   POP(cpu, &cpu->r_ac);
-
-  // TODO check for stack  [under|over] flow
 }
 
 void interrupt(cpu_t *cpu)
@@ -339,10 +356,7 @@ void interrupt(cpu_t *cpu)
   PUSH(cpu, u_pc+1);
   
   cpu->r_pc = INTERRUPT_PROGRAM_LOAD;
-
-  // TODO check for stack  [under|over] flow
 }
-
 
 
 void timer_interrupt(cpu_t *cpu)
@@ -351,7 +365,7 @@ void timer_interrupt(cpu_t *cpu)
    * Push PC and SP onto system stack
    * Disable interrupts
    * Switch to system mode
-   * Swithc to system stack
+   * Switch to system stack
    */
   word_t u_sp;
   word_t u_pc;
@@ -366,18 +380,16 @@ void timer_interrupt(cpu_t *cpu)
   u_pc = cpu->r_pc;
     
   cpu->r_sp = SSTACK_BASE;
+  
   PUSH(cpu, u_sp);
   PUSH(cpu, u_pc);
   
   cpu->r_pc = TIMER_PROGRAM_LOAD;
-
-  // TODO check for stack  [under|over] flow
 }
 
 void iret(cpu_t *cpu)
 {
   /* IRet: return from system call
-   * Pop PC and SP from system stack
    */
   
   /* pop PC and SP from system stack */
@@ -388,8 +400,6 @@ void iret(cpu_t *cpu)
   /* enable interrupts and return to user mode */
   cpu->c_interrupts = 1;
   cpu->c_mode = USER_MODE;
-
-  // TODO check for stack  [under|over] flow
 }
 
 void end(cpu_t *cpu)
