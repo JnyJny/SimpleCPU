@@ -64,6 +64,13 @@ microcode_f microcode_table[NUM_OPCODES] = {
   end
 };
 
+
+#define PUSH(CPU, V) (CPU)->store(((CPU)->r_sp), (V)); (CPU)->r_sp--
+
+#define POP(CPU, V)  (CPU)->r_sp++; (CPU)->load((CPU)->r_sp, (V))
+ 
+
+
 /* Instruction Implementation
  */
 
@@ -262,18 +269,17 @@ void jump_ne_addr(cpu_t *cpu)
 void call_addr(cpu_t *cpu)
 {
   /* Call addr: Push return address onto stack, jump to addr */
-  
-  cpu->store(cpu->r_sp, cpu->r_pc+1);
-  cpu->r_sp--;
+
+  PUSH(cpu, cpu->r_pc+1);
   cpu->r_pc = cpu->instruction.operand;
 }
 
 void ret(cpu_t *cpu)
 {
   /* Ret: Pop return address from stack, jump to address */
+  
+  POP(cpu, &cpu->r_pc);
 
-  cpu->r_sp++;
-  cpu->load(cpu->r_sp, &cpu->r_pc);
   // TODO check for stack  [under|over] flow
 }
 
@@ -293,7 +299,8 @@ void push(cpu_t *cpu)
 {
   /* Push: push AC onto Stack */
 
-  cpu->store(cpu->r_sp--, cpu->r_ac);
+  PUSH(cpu, cpu->r_ac);
+
   // TODO check for stack  [under|over] flow
 }
 
@@ -301,7 +308,8 @@ void pop(cpu_t *cpu)
 {
   /* Pop: pop stack into AC */
 
-  cpu->load(++cpu->r_sp, &cpu->r_ac);
+  POP(cpu, &cpu->r_ac);
+
   // TODO check for stack  [under|over] flow
 }
 
@@ -326,13 +334,16 @@ void interrupt(cpu_t *cpu)
   u_pc = cpu->r_pc;
   
   cpu->r_sp = SSTACK_BASE;
-  cpu->store(cpu->r_sp--, u_sp);
-  cpu->store(cpu->r_sp--, u_pc + 1);
+
+  PUSH(cpu, u_sp);
+  PUSH(cpu, u_pc+1);
   
   cpu->r_pc = INTERRUPT_PROGRAM_LOAD;
 
   // TODO check for stack  [under|over] flow
 }
+
+
 
 void timer_interrupt(cpu_t *cpu)
 {
@@ -355,8 +366,8 @@ void timer_interrupt(cpu_t *cpu)
   u_pc = cpu->r_pc;
     
   cpu->r_sp = SSTACK_BASE;
-  cpu->store(cpu->r_sp--, u_sp);
-  cpu->store(cpu->r_sp--, u_pc);
+  PUSH(cpu, u_sp);
+  PUSH(cpu, u_pc);
   
   cpu->r_pc = TIMER_PROGRAM_LOAD;
 
@@ -370,8 +381,9 @@ void iret(cpu_t *cpu)
    */
   
   /* pop PC and SP from system stack */
-  cpu->load(++cpu->r_sp, &cpu->r_pc);
-  cpu->load(++cpu->r_sp, &cpu->r_sp);
+
+  POP(cpu, &cpu->r_pc);
+  POP(cpu, &cpu->r_sp);
   
   /* enable interrupts and return to user mode */
   cpu->c_interrupts = 1;
