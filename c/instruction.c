@@ -48,7 +48,7 @@ instruction_t *alloc_dispatch_table(void)
   tbl[19] = init_instruction(COPYFROMSP_OPCODE, 0, "CopyFromSP", "CopyFromSP: copy the value in SP to AC");
   tbl[20] = init_instruction(JUMP_OPCODE,       1, "Jump",       "Jump address: jump to address");
   tbl[21] = init_instruction(JUMPEQ_OPCODE,     1, "JumpEQ",     "JumpEQ address: jump to address if AC is zero");
-  tbl[22] = init_instruction(JUMPNE_OPCODE,     1, "JumpNE",     "JumpEQ address: jump to address if AC is not zero");
+  tbl[22] = init_instruction(JUMPNE_OPCODE,     1, "JumpNE",     "JumpNE address: jump to address if AC is not zero");
   tbl[23] = init_instruction(CALL_OPCODE,       1, "Call",       "Call address: push return address onto stack, jump to the address.");
   tbl[24] = init_instruction(RETURN_OPCODE,     0, "Return",     "Return: pop return address from stack and jump to address.");
   tbl[25] = init_instruction(INCX_OPCODE,       0, "IncX",       "IncX: Increment the value in X");
