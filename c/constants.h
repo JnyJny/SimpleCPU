@@ -42,4 +42,6 @@ typedef struct {
 
 #define MAGIC 0x6f6a6521
 
+#define SYMSZ 16		/* length of a symbol */
+
 #endif	/* CONSTANTS_H */
