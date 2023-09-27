@@ -41,23 +41,14 @@ dis: dis.c $(DIS_OBJS) $(DIS_HDRS)
 	cc -o $@ $(DIS_OBJS) $(LFLAGS)
 
 
-tests: asm program1.o sample1.o sample2.o sample3.o sample4.o
 
-program1.o: tests/program1.s
-	./asm -f $< -o $@
+TEST_SRC = tests/program1.s tests/sample1.s tests/sample2.s tests/sample3.s tests/sample4.s
+TEST_OBJ = $(TEST_SRC:.s=.o)
 
-sample1.o: tests/sample1.s
-	./asm -f $< -o $@
+tests: $(TEST_PROGRAMS)
 
-sample2.o: tests/sample2.s
-	./asm -f $< -o $@
-
-sample3.o: tests/sample3.s
-	./asm -f $< -o $@
-
-sample4.o: tests/sample4.s
-	./asm -f $< -o $@
-
+.s.o: asm $(TEST_PROGRAMS)
+	./asm -o $@ -O $<
 
 clean:
 	rm -f $(OBJ) trace.memory *.o
