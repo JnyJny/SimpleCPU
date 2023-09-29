@@ -38,7 +38,6 @@ def instrument(*, registers: bool = True, memory: bool = True, stack: bool = Fal
         def wrapped(*args, **kwargs):
             logger_ = logger.opt(depth=1)
             cpu, *_ = args
-
             opcode = cpu.opcode
             try:
                 logger_.debug(
@@ -51,7 +50,7 @@ def instrument(*, registers: bool = True, memory: bool = True, stack: bool = Fal
                 registers=registers, memory=memory, stack=stack
             ).splitlines():
                 logger_.debug(line)
-            return func(*args, **kwargs)
+            func(*args, **kwargs)
 
         return wrapped
 
@@ -90,8 +89,8 @@ class CPU:
         lines = []
         if registers:
             fmt = (
-                "[pc] {pc:08} [ir] {ir:08} [sp] {sp:08}\n"
-                "[ac] {ac:08} [ x] {x:08} [ y] {y:08}\n"
+                "[pc] {pc:08} [ir] {ir:08} [sp] {sp:08} [ m] {mode.name}\n"
+                "[ac] {ac:08} [ x] {x:08} [ y] {y:08} [t?] {timer!s}\n"
                 "[cy] {cycles:08}"
             )
             lines.append(fmt.format_map(self.registers))
@@ -118,6 +117,7 @@ class CPU:
             "y": self.y,
             "cycles": self.cycles,
             "mode": self.mode,
+            "timer": self.fire_timer,
         }
 
     @property
@@ -134,7 +134,18 @@ class CPU:
 
     @property
     def opcode(self) -> Opcode:
-        return Opcode(self.ir)
+        try:
+            return Opcode(self.ir)
+        except ValueError:
+            raise InvalidOpcodeError(self.pc, self.ir) from None
+
+    @property
+    def microcode(self) -> callable:
+        opcode = self.opcode
+        try:
+            return getattr(self, opcode.name.lower())
+        except AttributeError:
+            raise MachineCheck(f"Missing microcode for {opcode.name.lower()}") from None
 
     @property
     def user_space(self) -> range:
@@ -180,10 +191,16 @@ class CPU:
             try:
                 self.step()
             except StopIteration:
+                self.cycles += 1
                 break
+
+            opcode = self.opcode
+            if not opcode.is_cti:
+                self.pc += 2 if opcode.has_operand else 1
 
     def step(self) -> None:
         """Execute one instruction at PC"""
+
         self.operand = None
 
         if self.fire_timer:
@@ -191,33 +208,16 @@ class CPU:
 
         self.ir = self._load(self.pc)
 
-        try:
-            opcode = Opcode(self.ir)
-        except ValueError:
-            raise InvalidOpcodeError(self.pc, self.ir) from None
-
-        if opcode.has_operand:
+        if self.opcode.has_operand:
             self.operand = self._load(self.pc + 1)
 
-        try:
-            microcode = getattr(self, opcode.name.lower())
-        except AttributeError:
-            raise MachineCheck(f"Missing microcode for {opcode.name.lower()}")
-        try:
-            microcode()
-        except StopIteration:
-            self.cycles += 1
-            raise
+        self.microcode()
 
         self.cycles += 1
 
-        if opcode.is_cti:
-            return
-
-        self.pc += 2 if opcode.has_operand else 1
-
     @instrument()
     def invalid(self) -> None:
+        """Raises InvalidOpcodeError."""
         raise InvalidOpcodeError(self.pc, self.ir)
 
     @instrument()
@@ -248,6 +248,7 @@ class CPU:
 
     @instrument()
     def loadspx(self) -> None:
+        """Load the value from address SP+X into the AC register."""
         self.ac = self._load(self.sp + self.x)
 
     @instrument()
@@ -262,7 +263,13 @@ class CPU:
 
     @instrument()
     def put(self) -> None:
-        """Write contents of AC register to the console as an int (1) or character(2)."""
+        """Write contents of AC register to the console.
+
+        If port is 1, write AC as an integer
+        If port is 2, write AC as a character
+
+        Raise InvalidOperandError for port not in [1,2]
+        """
 
         logger.info(f"[{self.pc:08}] put {self.ac} -> port {self.operand} ")
 
@@ -385,7 +392,21 @@ class CPU:
 
     @instrument(stack=True)
     def interrupt(self, program_load: ProgramLoad = ProgramLoad.INTERRUPT) -> None:
-        """Perform a system call."""
+        """Perform a system call.
+
+        Handles TIMER and INTERRUPT system calls.
+
+        If interrupts are disabled, increment PC and return.
+
+        Switch to SYSTEM mode
+        Disable interrupts
+        Save SP and PC
+        If not a TIMER interrupt, increment PC
+        Switch to SYSTEM stack
+        Push user SP
+        Push user PC
+        Set PC to ProgramLoad.INTERRUPT or ProgramLoad.TIMER
+        """
 
         if not self.interrupts_enabled:
             self.pc += 1
@@ -395,9 +416,12 @@ class CPU:
         self.interrupts_enabled = False
 
         u_sp = self.sp
-        u_pc = self.pc + 1
+        u_pc = self.pc
 
-        self.sp = StackBase.SYSTEM.value
+        if program_load == ProgramLoad.INTERRUPT:
+            u_pc += 1
+
+        self.sp = StackBase.for_mode(self.mode).value
         self._push(u_sp)
         self._push(u_pc)
 
@@ -405,7 +429,13 @@ class CPU:
 
     @instrument(stack=True)
     def ireturn(self) -> None:
-        """Return from a system call."""
+        """Return from a system call.
+
+        Pop user PC from the SYSTEM stack
+        Pop user SP from the SYSTEM stack
+        Enable interrupts
+        Switch mode to USER
+        """
         self.pc = self._pop()
         self.sp = self._pop()
         self.interrupts_enabled = True
@@ -413,5 +443,8 @@ class CPU:
 
     @instrument()
     def end(self) -> None:
-        """Stop executing instructions."""
+        """Stop executing instructions.
+
+        Raises StopIteration
+        """
         raise StopIteration()
