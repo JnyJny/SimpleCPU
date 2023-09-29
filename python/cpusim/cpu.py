@@ -161,7 +161,9 @@ class CPU:
 
     def _pop(self) -> int:
 
-        if self.mode == Mode.USER and self.sp >= StackBase.USER:
+        stackbase = StackBase.for_mode(self.mode)
+
+        if self.sp >= stackbase:
             raise StackUnderflowError(self.sp, self.mode)
 
         try:

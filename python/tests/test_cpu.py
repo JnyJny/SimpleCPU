@@ -108,7 +108,7 @@ def test_cpu__push_method_user_mode(cpu) -> None:
     cpu._push(1)
 
     assert cpu.sp == base - 1
-    assert cpu._load(cpu.sp + 1) == 1
+    assert cpu._load(cpu.sp) == 1
 
 
 def test_cpu__push_method_system_mode(cpu) -> None:
@@ -123,38 +123,36 @@ def test_cpu__push_method_system_mode(cpu) -> None:
     cpu._push(1)
 
     assert cpu.sp == base - 1
-    assert cpu._load(cpu.sp + 1) == 1
+    assert cpu._load(cpu.sp) == 1
 
 
 def test_cpu__pop_method_user_mode(cpu) -> None:
 
-    base = StackBase.USER.value
+    assert cpu.sp == StackBase.for_mode(cpu.mode)
 
-    assert cpu.memory.words[base] != 1
+    cpu._push(0xFF)
 
-    cpu.memory.words[base] = 1
-    cpu.sp = base - 1
+    assert cpu.sp < StackBase.for_mode(cpu.mode)
 
     value = cpu._pop()
 
-    assert cpu.sp == base
-    assert value == 1
+    assert cpu.sp == StackBase.for_mode(cpu.mode)
+    assert value == 0xFF
 
 
 def test_cpu__pop_method_system_mode(cpu) -> None:
 
     cpu.mode = Mode.SYSTEM
-    base = StackBase.SYSTEM.value
+    cpu.sp = StackBase.for_mode(cpu.mode)
 
-    assert cpu.memory.words[base] != 1
+    cpu._push(0xff)
 
-    cpu.memory.words[base] = 1
-    cpu.sp = base - 1
+    assert cpu.sp < StackBase.for_mode(cpu.mode)
 
     value = cpu._pop()
 
-    assert cpu.sp == base
-    assert value == 1
+    assert cpu.sp == StackBase.for_mode(cpu.mode)
+    assert value == 0xff
 
 
 def test_cpu__pop_method_user_mode_underflow(cpu) -> None:
@@ -203,17 +201,17 @@ def test_cpu_microcode_invalid(cpu) -> None:
     cpu.memory.words[0] = Opcode.INVALID.value
 
     with pytest.raises(InvalidOpcodeError):
-        cpu.step()
+        cpu.step()  # invalid
 
 
 def test_cpu_microcode_loadv(cpu) -> None:
     cpu.memory.words[0] = Opcode.LOADV.value
     cpu.memory.words[1] = 1
 
-    cpu.step()
+    cpu.step()  # loadv
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.LOADV.value
+    assert cpu.ir == Opcode.LOADV
     assert cpu.ac == 1
     assert cpu.operand == 1
 
@@ -223,10 +221,10 @@ def test_cpu_microcode_loada(cpu) -> None:
     cpu.memory.words[1] = 2
     cpu.memory.words[2] = 0xFF
 
-    cpu.step()
+    cpu.step()  # loada
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.LOADA.value
+    assert cpu.ir == Opcode.LOADA
     assert cpu.ac == 0xFF
     assert cpu.operand == 2
 
@@ -237,10 +235,10 @@ def test_cpu_microcode_loadi(cpu) -> None:
     cpu.memory.words[2] = 0xFF
     cpu.memory.words[3] = 2
 
-    cpu.step()
+    cpu.step()  # loadi
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.LOADI.value
+    assert cpu.ir == Opcode.LOADI
     assert cpu.ac == 0xFF
     assert cpu.operand == 3
 
@@ -252,10 +250,10 @@ def test_cpu_microcode_loadx(cpu) -> None:
 
     cpu.x = 1
 
-    cpu.step()
+    cpu.step()  # loadx
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.LOADX.value
+    assert cpu.ir == Opcode.LOADX
     assert cpu.ac == 0xFF
     assert cpu.operand == 99
 
@@ -267,10 +265,10 @@ def test_cpu_microcode_loady(cpu) -> None:
 
     cpu.y = 1
 
-    cpu.step()
+    cpu.step()  # loady
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.LOADY.value
+    assert cpu.ir == Opcode.LOADY
     assert cpu.ac == 0xFF
     assert cpu.operand == 99
 
@@ -281,10 +279,10 @@ def test_cpu_microcode_loadspx(cpu) -> None:
     cpu.memory.words[cpu.sp - 100] = 0xFF
     cpu.x = -100
 
-    cpu.step()
+    cpu.step()  # loadspx
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.LOADSPX.value
+    assert cpu.ir == Opcode.LOADSPX
     assert cpu.ac == 0xFF
 
 
@@ -293,10 +291,10 @@ def test_cpu_microcode_store(cpu) -> None:
     cpu.memory.words[1] = 10
     cpu.ac = 0xFF
 
-    cpu.step()
+    cpu.step()  # store
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.STORE.value
+    assert cpu.ir == Opcode.STORE
     assert cpu.operand == 10
     assert cpu.memory.words[10] == 0xFF
 
@@ -306,10 +304,10 @@ def test_cpu_microcode_get(cpu) -> None:
 
     assert cpu.ac == 0
 
-    cpu.step()
+    cpu.step()  # get
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.GET.value
+    assert cpu.ir == Opcode.GET
     assert cpu.ac in range(1, 101)
 
 
@@ -321,12 +319,12 @@ def test_cpu_microcode_put_port_1(char, cpu, capsys) -> None:
 
     cpu.ac = ord(char)
 
-    cpu.step()
+    cpu.step()  # put
 
     captured = capsys.readouterr()
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.PUT.value
+    assert cpu.ir == Opcode.PUT
     assert cpu.operand == 1
     assert captured.out == str(cpu.ac)
 
@@ -338,12 +336,12 @@ def test_cpu_microcode_put_port_2(char, cpu, capsys) -> None:
 
     cpu.ac = ord(char)
 
-    cpu.step()
+    cpu.step()  # put
 
     captured = capsys.readouterr()
 
     assert cpu.pc == ProgramLoad.USER.value + 2
-    assert cpu.ir == Opcode.PUT.value
+    assert cpu.ir == Opcode.PUT
     assert cpu.operand == 2
 
     assert captured.out == chr(cpu.ac)
@@ -355,10 +353,10 @@ def test_cpu_microcode_addx(ac, x, cpu) -> None:
     cpu.ac = ac
     cpu.x = x
 
-    cpu.step()
+    cpu.step()  # addx
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.ADDX.value
+    assert cpu.ir == Opcode.ADDX
     assert cpu.ac == ac + x
 
 
@@ -368,10 +366,10 @@ def test_cpu_microcode_addy(ac, y, cpu) -> None:
     cpu.ac = ac
     cpu.y = y
 
-    cpu.step()
+    cpu.step()  # addy
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.ADDY.value
+    assert cpu.ir == Opcode.ADDY
     assert cpu.ac == ac + y
 
 
@@ -382,10 +380,10 @@ def test_cpu_microcode_subx(ac, x, cpu) -> None:
     cpu.ac = ac
     cpu.x = x
 
-    cpu.step()
+    cpu.step()  # subx
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.SUBX.value
+    assert cpu.ir == Opcode.SUBX
     assert cpu.ac == ac - x
 
 
@@ -396,10 +394,10 @@ def test_cpu_microcode_suby(ac, y, cpu) -> None:
     cpu.ac = ac
     cpu.y = y
 
-    cpu.step()
+    cpu.step()  # suby
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.SUBY.value
+    assert cpu.ir == Opcode.SUBY
     assert cpu.ac == ac - y
 
 
@@ -410,10 +408,10 @@ def test_cpu_microcode_copytox(ac, cpu) -> None:
 
     assert cpu.x == 0
 
-    cpu.step()
+    cpu.step()  # copytox
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.COPYTOX.value
+    assert cpu.ir == Opcode.COPYTOX
     assert cpu.x == cpu.ac
 
 
@@ -424,10 +422,10 @@ def test_cpu_microcode_copyfromx(x, cpu) -> None:
     cpu.x = x
     assert cpu.ac == 0
 
-    cpu.step()
+    cpu.step()  # copyfromx
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.COPYFROMX.value
+    assert cpu.ir == Opcode.COPYFROMX
     assert cpu.ac == cpu.x
 
 
@@ -439,10 +437,10 @@ def test_cpu_microcode_copytoy(ac, cpu) -> None:
 
     assert cpu.y == 0
 
-    cpu.step()
+    cpu.step()  # copytoy
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.COPYTOY.value
+    assert cpu.ir == Opcode.COPYTOY
     assert cpu.y == cpu.ac
 
 
@@ -454,10 +452,10 @@ def test_cpu_microcode_copyfromx(y, cpu) -> None:
 
     assert cpu.ac == 0
 
-    cpu.step()
+    cpu.step()  # copyfromy
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.COPYFROMY.value
+    assert cpu.ir == Opcode.COPYFROMY
     assert cpu.ac == cpu.y
 
 
@@ -468,10 +466,10 @@ def test_cpu_microcode_copytosp(ac, cpu) -> None:
     cpu.ac = ac
     assert cpu.sp == StackBase.for_mode(cpu.mode)
 
-    cpu.step()
+    cpu.step()  # copytosp
 
     assert cpu.pc == ProgramLoad.USER.value + 1
-    assert cpu.ir == Opcode.COPYTOSP.value
+    assert cpu.ir == Opcode.COPYTOSP
     assert cpu.sp == cpu.ac
 
 
@@ -482,7 +480,7 @@ def test_cpu_microcode_copyfromsp(sp, cpu) -> None:
 
     assert cpu.ac == 0
 
-    cpu.step()
+    cpu.step()  # copyfromsp
 
     assert cpu.pc == ProgramLoad.USER.value + 1
     assert cpu.ir == Opcode.COPYFROMSP.value
@@ -494,7 +492,7 @@ def test_cpu_microcode_jump(address, cpu) -> None:
     cpu.memory.words[0] = Opcode.JUMP.value
     cpu.memory.words[1] = address
 
-    cpu.step()
+    cpu.step()  # jump
 
     assert cpu.pc == address
     assert cpu.ir == Opcode.JUMP.value
@@ -506,7 +504,7 @@ def test_cpu_microcode_jumpeq_true(address, cpu) -> None:
     cpu.memory.words[1] = address
     cpu.ac = 0
 
-    cpu.step()
+    cpu.step()  # jumpeq
 
     assert cpu.pc == address
     assert cpu.ir == Opcode.JUMPEQ.value
@@ -519,7 +517,7 @@ def test_cpu_microcode_jumpeq_false(address, cpu) -> None:
 
     cpu.ac = 1
 
-    cpu.step()
+    cpu.step()  # jumpeq
 
     assert cpu.pc == ProgramLoad.USER.value + 2
     assert cpu.ir == Opcode.JUMPEQ.value
@@ -532,7 +530,7 @@ def test_cpu_microcode_jumpne_true(address, cpu) -> None:
 
     cpu.ac = 1
 
-    cpu.step()
+    cpu.step()  # jumpne
 
     assert cpu.pc == address
     assert cpu.ir == Opcode.JUMPNE.value
@@ -545,7 +543,7 @@ def test_cpu_microcode_jumpne_false(address, cpu) -> None:
 
     cpu.ac = 0
 
-    cpu.step()
+    cpu.step()  # jumpne
 
     assert cpu.pc == ProgramLoad.USER.value + 2
     assert cpu.ir == Opcode.JUMPNE.value
@@ -556,14 +554,14 @@ def test_cpu_microcode_call(address, cpu) -> None:
     cpu.memory.words[0] = Opcode.CALL.value
     cpu.memory.words[1] = address
 
-    cpu.step()
+    cpu.step()  # call
 
     assert cpu.pc == address
     assert cpu.ir == Opcode.CALL.value
     assert cpu.sp == StackBase.for_mode(cpu.mode) - 1
     assert cpu.operand == address
     assert cpu.pc == address
-    assert cpu.memory.words[cpu.sp + 1] == 2
+    assert cpu.memory.words[cpu.sp] == 2
 
 
 @pytest.mark.parametrize("address", list(range(10, 100, 10)))
@@ -572,11 +570,11 @@ def test_cpu_microcode_ret(address, cpu) -> None:
     cpu.memory.words[1] = address
     cpu.memory.words[address] = Opcode.RET.value
 
-    cpu.step()
+    cpu.step()  # call
 
     assert cpu.pc == address
 
-    cpu.step()
+    cpu.step()  # ret
 
     assert cpu.pc == ProgramLoad.USER.value + 2
     assert cpu.ir == Opcode.RET.value
@@ -627,13 +625,13 @@ def test_cpu_microcode_pop_user_mode_success(cpu) -> None:
     cpu.memory.words[0] = Opcode.PUSH.value
     cpu.memory.words[1] = Opcode.POP.value
 
-    cpu.step()
+    cpu.step()  # push
 
     cpu.ac = 0
 
     assert cpu.sp < StackBase.for_mode(cpu.mode)
 
-    cpu.step()
+    cpu.step()  # pop
 
     assert cpu.ir == Opcode.POP.value
     assert cpu.ac == 0xFF
@@ -648,15 +646,74 @@ def test_cpu_microcode_pop_user_mode_underflow(cpu) -> None:
 
 
 def test_cpu_microcode_push_system_mode(cpu) -> None:
-    cpu.memory.words[0] = Opcode.PUSH.value
+
+    cpu.memory.words[0] = Opcode.INTERRUPT.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value] = Opcode.PUSH.value
+
+    cpu.step()  # interrupt
+
+    assert cpu.mode == Mode.SYSTEM
+    assert cpu.pc == ProgramLoad.INTERRUPT.value
+    assert cpu.sp == StackBase.for_mode(cpu.mode).value - 2
+
+    cpu.ac = 0xFF
+
+    cpu.step()  # push
+
+    assert cpu.mode == Mode.SYSTEM
+    assert cpu.pc == ProgramLoad.INTERRUPT.value + 1
+    assert cpu.ir == Opcode.PUSH
+    assert cpu.sp < StackBase.for_mode(cpu.mode)
 
 
 def test_cpu_microcode_pop_system_mode_success(cpu) -> None:
-    cpu.memory.words[0] = Opcode.POP.value
+    cpu.memory.words[0] = Opcode.INTERRUPT.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value] = Opcode.PUSH.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value + 1] = Opcode.POP.value
+
+    cpu.step()  # interrupt
+
+    assert cpu.mode == Mode.SYSTEM
+    assert cpu.pc == ProgramLoad.INTERRUPT.value
+    assert cpu.ir == Opcode.INTERRUPT
+
+    cpu.ac = 0xFF
+
+    cpu.step()  # push
+
+    assert cpu.pc == ProgramLoad.INTERRUPT.value + 1
+    assert cpu.ir == Opcode.PUSH
+    assert cpu.sp < StackBase.for_mode(cpu.mode)
+
+    cpu.ac = 0
+
+    cpu.step()  # pop
+
+    assert cpu.pc == ProgramLoad.INTERRUPT.value + 2
+    assert cpu.ir == Opcode.POP
+    assert cpu.ac == 0xFF
 
 
 def test_cpu_microcode_pop_system_mode_underflow(cpu) -> None:
-    cpu.memory.words[0] = Opcode.POP.value
+    cpu.memory.words[0] = Opcode.INTERRUPT.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value] = Opcode.POP.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value + 1] = Opcode.POP.value
+    cpu.memory.words[ProgramLoad.INTERRUPT.value + 2] = Opcode.POP.value
+
+    cpu.step()  # interrupt
+
+    assert cpu.mode == Mode.SYSTEM
+    assert cpu.pc == ProgramLoad.INTERRUPT.value
+    assert cpu.ir == Opcode.INTERRUPT
+
+    cpu.step()  # pop pc
+
+    cpu.step()  # pop sp
+
+    assert cpu.sp == StackBase.for_mode(cpu.mode)
+
+    with pytest.raises(StackUnderflowError):
+        cpu.step()  # pop
 
 
 def test_cpu_microcode_interrupt_interrupts_enabled(cpu) -> None:
@@ -675,8 +732,8 @@ def test_cpu_microcode_interrupt_interrupts_enabled(cpu) -> None:
     assert cpu.pc == ProgramLoad.INTERRUPT.value
     assert cpu.sp == StackBase.for_mode(cpu.mode) - 2
     assert cpu.interrupts_enabled == False
-    assert cpu.memory.words[cpu.sp + 1] == npc
-    assert cpu.memory.words[cpu.sp + 2] == sp
+    assert cpu.memory.words[cpu.sp + 0] == npc
+    assert cpu.memory.words[cpu.sp + 1] == sp
 
 
 def test_cpu_microcode_interrupt_interrupts_disabled(cpu) -> None:
