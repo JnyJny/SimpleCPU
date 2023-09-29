@@ -9,7 +9,7 @@ import random
 from loguru import logger
 
 from .constants import Mode, ProgramLoad, StackBase
-from .memory import Memory
+from .memory import Memory, MemoryRangeError
 from .opcode import Opcode, InvalidOpcodeError
 
 
@@ -22,6 +22,10 @@ class InvalidOperandError(Exception):
 
 
 class StackUnderflowError(Exception):
+    pass
+
+
+class MachineCheck(Exception):
     pass
 
 
@@ -66,7 +70,7 @@ class CPU:
         self.mode = Mode.USER
         self.ir: int = 0
         self.pc: int = ProgramLoad.USER.value
-        self.sp: int = StackBase.USER.value
+        self.sp: int = StackBase.for_mode(self.mode).value
         self.ac: int = 0
         self.x: int = 0
         self.y: int = 0
@@ -74,7 +78,6 @@ class CPU:
         self.operand: int = None
 
     def __str__(self) -> str:
-
         return self.dump()
 
     def log_state(self) -> None:
@@ -94,7 +97,7 @@ class CPU:
             lines.append(fmt.format_map(self.registers))
 
         if stack:
-            base = StackBase.USER if self.mode == Mode.USER else StackBase.SYSTEM
+            base = StackBase.for_mode(self.mode)
             for sp in range(self.sp, base.value):
                 value = self._load(sp)
                 lines.append(f"[stack {sp:08}] [{value:08}]")
@@ -157,46 +160,63 @@ class CPU:
         self._store(self.sp, value)
 
     def _pop(self) -> int:
-        value: int = self._load(self.sp)
-        self.sp += 1
-        if self.mode == Mode.USER and self.sp > StackBase.USER:
-            raise StackUnderflowError()
-        return value
+
+        if self.mode == Mode.USER and self.sp >= StackBase.USER:
+            raise StackUnderflowError(self.sp, self.mode)
+
+        try:
+            value = self._load(self.sp)
+            self.sp += 1
+            return value
+        except MemoryRangeError:
+            raise StackUnderflowError(self.sp, self.mode) from None
 
     def start(self) -> None:
         """Start executing the program found at the address ProgramLoad.USER."""
 
         while True:
-            self.operand = None
-
-            if self.fire_timer:
-                self.interrupt(ProgramLoad.TIMER)
-
-            self.ir = self._load(self.pc)
-
             try:
-                opcode = Opcode(self.ir)
-                if opcode == Opcode.INVALID:
-                    raise ValueError()
-            except ValueError:
-                raise InvalidOpcodeError(self.pc, self.ir) from None
-
-            if opcode == Opcode.END:
+                self.step()
+            except StopIteration:
                 break
 
-            if opcode.has_operand:
-                self.operand = self._load(self.pc + 1)
+    def step(self) -> None:
+        """Execute one instruction at PC"""
+        self.operand = None
 
+        if self.fire_timer:
+            self.interrupt(ProgramLoad.TIMER)
+
+        self.ir = self._load(self.pc)
+
+        try:
+            opcode = Opcode(self.ir)
+        except ValueError:
+            raise InvalidOpcodeError(self.pc, self.ir) from None
+
+        if opcode.has_operand:
+            self.operand = self._load(self.pc + 1)
+
+        try:
             microcode = getattr(self, opcode.name.lower())
-
+        except AttributeError:
+            raise MachineCheck(f"Missing microcode for {opcode.name.lower()}")
+        try:
             microcode()
-
+        except StopIteration:
             self.cycles += 1
+            raise
 
-            if opcode.is_cti:
-                continue
+        self.cycles += 1
 
-            self.pc += 2 if opcode.has_operand else 1
+        if opcode.is_cti:
+            return
+
+        self.pc += 2 if opcode.has_operand else 1
+
+    @instrument()
+    def invalid(self) -> None:
+        raise InvalidOpcodeError(self.pc, self.ir)
 
     @instrument()
     def loadv(self) -> None:
@@ -226,7 +246,7 @@ class CPU:
 
     @instrument()
     def loadspx(self) -> None:
-        self.ac = self.sp + self.x
+        self.ac = self._load(self.sp + self.x)
 
     @instrument()
     def store(self) -> None:
@@ -373,7 +393,7 @@ class CPU:
         self.interrupts_enabled = False
 
         u_sp = self.sp
-        u_pc = self.pc
+        u_pc = self.pc + 1
 
         self.sp = StackBase.SYSTEM.value
         self._push(u_sp)
