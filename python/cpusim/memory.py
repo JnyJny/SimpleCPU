@@ -9,20 +9,16 @@ from struct import unpack
 
 from loguru import logger
 
-from .constants import MAGIC, NWORDS, ProgramLoad
+from .constants import NWORDS, ProgramLoad
 
 
-class ObjectError(Exception):
-    pass
-
-
-class MemoryRangeException(Exception):
+class MemoryRangeError(Exception):
     def __init__(self, address: int, bounds: range) -> None:
         self.address = address
         self.bounds = bounds
 
     def __str__(self) -> str:
-        return "{self.__class__.__name__} {self.address} not in {self.bounds}"
+        return f"{self.__class__.__name__} {self.address} not in {self.bounds}"
 
 
 class Memory:
@@ -30,6 +26,17 @@ class Memory:
         """ """
         self.nwords = nwords
         self.initializer = initializer
+
+        if self.nwords <= 0:
+            raise ValueError(
+                f"Non-positive memory size is not supported: {self.nwords}"
+            )
+
+        if self.initializer and len(self.initializer) != self.nwords:
+            raise ValueError(
+                f"Initializer mismatch: {self.nwords} != {len(self.initializer)}"
+            )
+
         logger.debug(repr(self))
 
     def __repr__(self) -> str:
@@ -81,7 +88,7 @@ class Memory:
         """ """
         logger.debug(f"read request {address=}")
         if address not in self.bounds:
-            outofbounds = MemoryRangeException(address, self.bounds)
+            outofbounds = MemoryRangeError(address, self.bounds)
             logger.error(str(outofbounds))
             raise outofbounds
         return self.words[address]
@@ -90,7 +97,7 @@ class Memory:
         """ """
         logger.debug(f"write request {address=} {value=}")
         if address not in self.bounds:
-            outofbounds = MemoryRangeException(address, self.bounds)
+            outofbounds = MemoryRangeError(address, self.bounds)
             logger.error(str(outofbounds))
             raise outofbounds
         self.words[address] = value
