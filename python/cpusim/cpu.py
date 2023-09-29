@@ -32,24 +32,20 @@ class MachineCheck(Exception):
 def instrument(*, registers: bool = True, memory: bool = True, stack: bool = False):
     def wrapper(func):
         name = func.__name__
-        desc = func.__doc__
+        desc = func.__doc__.splitlines()[0]
 
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
-            logger_ = logger.opt(depth=1)
+            lgr_ = logger.opt(depth=1)
             cpu, *_ = args
+            dump = cpu.dump(registers=registers, memory=memory, stack=stack)
             opcode = cpu.opcode
             try:
-                logger_.debug(
-                    "{:08}{:>16s} {:08} // {}", cpu.pc, name, cpu.operand, desc
-                )
+                lgr_.debug("{:08}{:>16s} {:08} // {}", cpu.pc, name, cpu.operand, desc)
             except TypeError:
-                logger_.debug("{:08}{:>16s} {:8} // {}", cpu.pc, name, "", desc)
-
-            for line in cpu.dump(
-                registers=registers, memory=memory, stack=stack
-            ).splitlines():
-                logger_.debug(line)
+                lgr_.debug("{:08}{:>16s} {:8} // {}", cpu.pc, name, "", desc)
+            for line in dump.splitlines():
+                lgr_.debug(line)
             func(*args, **kwargs)
 
         return wrapped
@@ -79,18 +75,14 @@ class CPU:
     def __str__(self) -> str:
         return self.dump()
 
-    def log_state(self) -> None:
-        for line in str(self).splitlines():
-            logger.debug(line)
-
     def dump(
         self, registers: bool = True, memory: bool = True, stack: bool = False
     ) -> str:
-        lines = []
+        lines = [f"[ m] {self.mode.name:8} [t?] {str(self.fire_timer):8}"]
         if registers:
             fmt = (
-                "[pc] {pc:08} [ir] {ir:08} [sp] {sp:08} [ m] {mode.name}\n"
-                "[ac] {ac:08} [ x] {x:08} [ y] {y:08} [t?] {timer!s}\n"
+                "[pc] {pc:08} [ir] {ir:08} [sp] {sp:08}\n"
+                "[ac] {ac:08} [ x] {x:08} [ y] {y:08}\n"
                 "[cy] {cycles:08}"
             )
             lines.append(fmt.format_map(self.registers))
@@ -116,8 +108,6 @@ class CPU:
             "x": self.x,
             "y": self.y,
             "cycles": self.cycles,
-            "mode": self.mode,
-            "timer": self.fire_timer,
         }
 
     @property
@@ -194,12 +184,29 @@ class CPU:
                 self.cycles += 1
                 break
 
-            opcode = self.opcode
-            if not opcode.is_cti:
-                self.pc += 2 if opcode.has_operand else 1
+            if self.opcode.is_cti:
+                continue
+
+            self.pc += 2 if self.opcode.has_operand else 1
 
     def step(self) -> None:
-        """Execute one instruction at PC"""
+        """Execute one instruction at PC
+
+        If the interrupt timer fires switch to SYSTEM mode
+
+        Load the instruction at PC into IR
+        Load the operand if the instruction has one
+        Execute the microcode for the instruction
+        Increment cycles to "retire" the instruction
+
+        Raises:
+        - MachineCheck
+        - InvalidOpcodeError
+        - InvalidOperandError
+        - SegmentationFault
+        - MemoryRangeError
+
+        """
 
         self.operand = None
 
