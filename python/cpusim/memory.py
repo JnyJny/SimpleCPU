@@ -10,15 +10,7 @@ from struct import unpack
 from loguru import logger
 
 from .constants import NWORDS, ProgramLoad
-
-
-class MemoryRangeError(Exception):
-    def __init__(self, address: int, bounds: range) -> None:
-        self.address = address
-        self.bounds = bounds
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__} {self.address} not in {self.bounds}"
+from .exceptions import MemoryRangeError
 
 
 class Memory:
@@ -60,6 +52,9 @@ class Memory:
     def __bytes__(self) -> bytes:
         return bytes(self.words)
 
+    def __len__(self) -> int:
+        return len(self.words)
+
     @property
     def words(self) -> array:
         try:
@@ -88,7 +83,7 @@ class Memory:
         """ """
         logger.debug(f"read request {address=}")
         if address not in self.bounds:
-            outofbounds = MemoryRangeError(address, self.bounds)
+            outofbounds = MemoryRangeError(f"{address} not in {self.bounds}")
             logger.error(str(outofbounds))
             raise outofbounds
         return self.words[address]
@@ -97,7 +92,7 @@ class Memory:
         """ """
         logger.debug(f"write request {address=} {value=}")
         if address not in self.bounds:
-            outofbounds = MemoryRangeError(address, self.bounds)
+            outofbounds = MemoryRangeError(f"{address} not in {self.bounds}")
             logger.error(str(outofbounds))
             raise outofbounds
         self.words[address] = value
