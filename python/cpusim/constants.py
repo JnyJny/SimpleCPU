@@ -16,6 +16,15 @@ class ProgramLoad(int, Enum):
     TIMER: int = 1000
     INTERRUPT: int = 1500
 
+    @classmethod
+    def for_mode(cls, mode: Mode) -> ProgramLoad:
+        """Return the base program address for a given mode."""
+        if mode == Mode.USER:
+            return cls.USER
+        if mode == Mode.SYSTEM:
+            return cls.INTERRUPT
+        raise ValueError(f"Unknown mode {mode}")
+
 
 class StackBase(int, Enum):
     USER: int = 999
@@ -23,6 +32,7 @@ class StackBase(int, Enum):
 
     @classmethod
     def for_mode(cls, mode: Mode) -> StackBase:
+        """Return the base stack address for a given mode."""
         if mode == Mode.USER:
             return cls.USER
         if mode == Mode.SYSTEM:
@@ -30,6 +40,6 @@ class StackBase(int, Enum):
         raise ValueError(f"Unknown mode {mode}")
 
 
-NWORDS: int = 2000
+NWORDS: int = StackBase.for_mode(Mode.SYSTEM).value + 1
 
 MAGIC: int = 0x6F6A6521
