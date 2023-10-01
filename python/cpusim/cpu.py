@@ -9,27 +9,14 @@ import random
 from loguru import logger
 
 from .constants import Mode, ProgramLoad, StackBase
-from .memory import Memory, MemoryRangeError
-from .opcode import Opcode, InvalidOpcodeError
-
-
-class SegmentationFault(Exception):
-    pass
-
-
-class InvalidOperandError(Exception):
-    pass
-
-
-class StackUnderflowError(Exception):
-    pass
-
-
-class MachineCheck(Exception):
-    pass
+from .exceptions import *
+from .instruction import Instruction
+from .memory import Memory
 
 
 def instrument(*, registers: bool = True, memory: bool = True, stack: bool = False):
+    """Log CPU state prior to the execution of an instruction."""
+
     def wrapper(func):
         name = func.__name__
         desc = func.__doc__.splitlines()[0]
@@ -39,7 +26,6 @@ def instrument(*, registers: bool = True, memory: bool = True, stack: bool = Fal
             lgr_ = logger.opt(depth=1)
             cpu, *_ = args
             dump = cpu.dump(registers=registers, memory=memory, stack=stack)
-            opcode = cpu.opcode
             try:
                 lgr_.debug("{:08}{:>16s} {:08} // {}", cpu.pc, name, cpu.operand, desc)
             except TypeError:
@@ -55,16 +41,16 @@ def instrument(*, registers: bool = True, memory: bool = True, stack: bool = Fal
 
 class CPU:
     def __init__(
-        self, memory: Memory, timer_interval: int = 0, debug: bool = False
+        self, memory: Memory = None, timer_interval: int = 0, debug: bool = False
     ) -> None:
-        self.memory = memory
+        self.memory = memory or Memory()
         self.timer_interval = timer_interval
         self.debug: bool = debug
         self.interrupts_enabled: bool = True
         self.fault: bool = False
         self.mode = Mode.USER
         self.ir: int = 0
-        self.pc: int = ProgramLoad.USER.value
+        self.pc: int = ProgramLoad.for_mode(self.mode).value
         self.sp: int = StackBase.for_mode(self.mode).value
         self.ac: int = 0
         self.x: int = 0
@@ -73,22 +59,38 @@ class CPU:
         self.operand: int = None
 
     def __str__(self) -> str:
-        return self.dump()
+        return self.dump(stack=True)
 
     def dump(
-        self, registers: bool = True, memory: bool = True, stack: bool = False
+        self,
+        registers: bool = True,
+        memory: bool = True,
+        stack: bool = False,
     ) -> str:
-        lines = [f"[ m] {self.mode.name:8} [t?] {str(self.fire_timer):8}"]
+        """The state of the CPU."""
+
+        lines = []
+
+        status = [
+            f"[ m] {self.mode.name:8}",
+            f"[ti] {self.timer_interval:08}",
+            f"[t?] {str(self.fire_timer):8}",
+            f"[i?] {str(self.interrupts_enabled)}",
+        ]
+
+        lines.append(" ".join(status))
+
+        base = StackBase.for_mode(self.mode)
+
         if registers:
-            fmt = (
-                "[pc] {pc:08} [ir] {ir:08} [sp] {sp:08}\n"
-                "[ac] {ac:08} [ x] {x:08} [ y] {y:08}\n"
-                "[cy] {cycles:08}"
+            lines.append(
+                f"[pc] {self.pc:08} [ir] {self.ir:08} [sp] {self.sp:08} [sb] {base.value:08}"
             )
-            lines.append(fmt.format_map(self.registers))
+            lines.append(
+                f"[ac] {self.ac:08} [ x] {self.x:08} [ y] {self.y:08} [cy] {self.cycles:08}"
+            )
 
         if stack:
-            base = StackBase.for_mode(self.mode)
             for sp in range(self.sp, base.value):
                 value = self._load(sp)
                 lines.append(f"[stack {sp:08}] [{value:08}]")
@@ -97,18 +99,6 @@ class CPU:
             lines.extend(str(self.memory).splitlines())
 
         return "\n".join(lines)
-
-    @property
-    def registers(self) -> dict[str, int]:
-        return {
-            "pc": self.pc,
-            "ir": self.ir,
-            "sp": self.sp,
-            "ac": self.ac,
-            "x": self.x,
-            "y": self.y,
-            "cycles": self.cycles,
-        }
 
     @property
     def fire_timer(self) -> bool:
@@ -123,45 +113,72 @@ class CPU:
         )
 
     @property
-    def opcode(self) -> Opcode:
-        try:
-            return Opcode(self.ir)
-        except ValueError:
-            raise InvalidOpcodeError(self.pc, self.ir) from None
+    def instruction(self) -> Instruction:
+        """The Instruction for the opcode in the IR register."""
+        return Instruction.by_opcode(self.ir)
 
     @property
     def microcode(self) -> callable:
-        opcode = self.opcode
+        """The method that implements the instruction in the IR register.
+
+        Raises:
+        - MachineCheck if no method is found for the opcode in IR.
+        """
+        instruction = Instruction.by_opcode(self.ir)
         try:
-            return getattr(self, opcode.name.lower())
+            return getattr(self, instruction.name)
         except AttributeError:
-            raise MachineCheck(f"Missing microcode for {opcode.name.lower()}") from None
+            raise MachineCheck(f"Missing microcode for {instruction.name}") from None
 
     @property
     def user_space(self) -> range:
+        """The valid range of addresses accessible in USER mode."""
         try:
             return self._user_space
         except AttributeError:
             pass
-        self._user_space = range(ProgramLoad.USER, int(StackBase.USER) + 1)
+        self._user_space = range(ProgramLoad.USER.value, StackBase.USER.value + 1)
         return self._user_space
 
     def _load(self, address: int) -> int:
+        """Load an integer value from Memory at address and return it.
+
+        Raises:
+        - SegmentationFault if mode is USER and address is out of bounds.
+        """
         if self.mode is Mode.USER and address not in self.user_space:
-            raise SegmentationFault(address)
+            raise SegmentationFault(f"load from {address}")
         return self.memory.read(address)
 
     def _store(self, address: int, value: int) -> None:
+        """Store an integer value to Memory at address.
+
+        Raises:
+        - SegmentationFault if mode is USER and address is out of bounds.
+        """
         if self.mode is Mode.USER and address not in self.user_space:
-            raise SegmentationFault(address)
+            raise SegmentationFault(f"store to {address}")
         self.memory.write(address, value)
 
     def _push(self, value: int) -> None:
+        """Push the value onto the current stack.
+
+        Decrement the stack pointer.
+        Store value to the top of stack.
+        """
+
         self.sp -= 1
         self._store(self.sp, value)
 
     def _pop(self) -> int:
+        """Pop the value from the top of the stack.
 
+        Check for user mode stack underflow
+        Load the value from the top of the stack
+        Increment stack pointer
+        Check for system mode stack underflow
+        Return value
+        """
         stackbase = StackBase.for_mode(self.mode)
 
         if self.sp >= stackbase:
@@ -175,7 +192,14 @@ class CPU:
             raise StackUnderflowError(self.sp, self.mode) from None
 
     def start(self) -> None:
-        """Start executing the program found at the address ProgramLoad.USER."""
+        """Start executing the program found at the address ProgramLoad.USER.
+
+        Raises:
+        - InvalidOpcodeError
+        - InvalidOperandError
+        - MemoryRangeError
+        - SegmentationFault
+        """
 
         while True:
             try:
@@ -184,10 +208,10 @@ class CPU:
                 self.cycles += 1
                 break
 
-            if self.opcode.is_cti:
+            if self.instruction.is_cti:
                 continue
 
-            self.pc += 2 if self.opcode.has_operand else 1
+            self.pc += 2 if self.instruction.has_operand else 1
 
     def step(self) -> None:
         """Execute one instruction at PC
@@ -200,12 +224,11 @@ class CPU:
         Increment cycles to "retire" the instruction
 
         Raises:
-        - MachineCheck
         - InvalidOpcodeError
         - InvalidOperandError
-        - SegmentationFault
+        - MachineCheck
         - MemoryRangeError
-
+        - SegmentationFault
         """
 
         self.operand = None
@@ -215,7 +238,7 @@ class CPU:
 
         self.ir = self._load(self.pc)
 
-        if self.opcode.has_operand:
+        if self.instruction.has_operand:
             self.operand = self._load(self.pc + 1)
 
         self.microcode()
@@ -225,7 +248,7 @@ class CPU:
     @instrument()
     def invalid(self) -> None:
         """Raises InvalidOpcodeError."""
-        raise InvalidOpcodeError(self.pc, self.ir)
+        raise InvalidOpcodeError(f"{self.pc:08d}: {self.ir:08d}")
 
     @instrument()
     def loadv(self) -> None:
@@ -275,7 +298,8 @@ class CPU:
         If port is 1, write AC as an integer
         If port is 2, write AC as a character
 
-        Raise InvalidOperandError for port not in [1,2]
+        Raises:
+        - InvalidOperandError for port not in [1,2]
         """
 
         logger.info(f"[{self.pc:08}] put {self.ac} -> port {self.operand} ")
@@ -291,7 +315,7 @@ class CPU:
             print(chr(self.ac), end="")
             return
 
-        raise InvalidOperandError(port)
+        raise InvalidOperandError(f"unknown {port=}")
 
     @instrument()
     def addx(self) -> None:
@@ -351,7 +375,6 @@ class CPU:
     @instrument()
     def jumpeq(self) -> None:
         """Jump to the address of AC register is equal to zero."""
-
         if self.ac == 0:
             self.pc = self.operand
         else:
@@ -360,7 +383,6 @@ class CPU:
     @instrument()
     def jumpne(self) -> None:
         """Jump to the address of AC register is not equal to zero."""
-
         if self.ac != 0:
             self.pc = self.operand
         else:
