@@ -47,7 +47,9 @@ class CPU:
         self.timer_interval = timer_interval
         self.debug: bool = debug
         self.interrupts_enabled: bool = True
-        self.fault: bool = False
+        self.reset()
+
+    def reset(self) -> None:
         self.mode = Mode.USER
         self.ir: int = 0
         self.pc: int = ProgramLoad.for_mode(self.mode).value
@@ -191,29 +193,17 @@ class CPU:
         except MemoryRangeError:
             raise StackUnderflowError(self.sp, self.mode) from None
 
-    def start(self) -> None:
-        """Start executing the program found at the address ProgramLoad.USER.
+    def __iter__(self) -> CPU:
+        self.reset()
+        return self
 
-        Raises:
-        - InvalidOpcodeError
-        - InvalidOperandError
-        - MemoryRangeError
-        - SegmentationFault
-        """
+    def __next__(self) -> Instruction:
 
-        while True:
-            try:
-                self.step()
-            except StopIteration:
-                self.cycles += 1
-                break
+        self.step()
 
-            if self.instruction.is_cti:
-                continue
+        return self.instruction
 
-            self.pc += 2 if self.instruction.has_operand else 1
-
-    def step(self) -> None:
+    def step(self, update_pc: bool = True) -> None:
         """Execute one instruction at PC
 
         If the interrupt timer fires switch to SYSTEM mode
@@ -241,9 +231,32 @@ class CPU:
         if self.instruction.has_operand:
             self.operand = self._load(self.pc + 1)
 
-        self.microcode()
+        try:
+            self.microcode()
+        except StopIteration:
+            self.cycles += 1
+            raise
 
         self.cycles += 1
+
+        if not update_pc:
+            return
+
+        if not self.instruction.is_cti:
+            self.pc += 2 if self.instruction.has_operand else 1
+
+    def start(self) -> None:
+        """Start executing the program found at the address ProgramLoad.USER.
+
+        Raises:
+        - InvalidOpcodeError
+        - InvalidOperandError
+        - MemoryRangeError
+        - SegmentationFault
+        """
+
+        for instruction in self:
+            cpu.cycles += 1
 
     @instrument()
     def invalid(self) -> None:
