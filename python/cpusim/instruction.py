@@ -50,9 +50,6 @@ class Instruction(Enum):
         Raises:
         - InvalidOpcodeError
         """
-        if opcode == 0:
-            raise InvalidOpcodeError(opcode)
-
         for instruction in cls:
             if instruction.opcode == opcode:
                 return instruction
@@ -71,3 +68,8 @@ class Instruction(Enum):
         self.is_cti = is_cti
         self.operand_name = operand_name
         self.has_operand = operand_name is not None
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, int):
+            return self.opcode == other
+        return super().__eq__(other)
