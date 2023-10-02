@@ -35,7 +35,7 @@ class MemoryRangeError(BaseException):
     pass
 
 
-class ObjectFormatError(Exception):
+class ObjectFormatError(BaseException):
     """Malformed object file format."""
 
     pass
