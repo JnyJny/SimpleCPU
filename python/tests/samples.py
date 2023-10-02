@@ -1,7 +1,27 @@
-"""
+""" Sample Program Source and Validation Values
 """
 
-sample1 = """
+
+program1_source: str = """
+       1   // Load 72=H
+      72
+       9   // Put 2
+       2
+       1   // Load 73=I
+      73
+       9   // Put 2
+       2
+      23  // Call 11
+      11
+      50  // End 
+       1   // Load 10=newline
+      10 
+       9   // Put 2
+       2
+      24  // Return
+"""
+
+sample1_source: str = """
 1    // Load 0
 0
 14   // CopyToX
@@ -77,7 +97,7 @@ sample1 = """
 30
 """
 
-sample2 = """
+sample2_source: str = """
 19   // CopyFromSp
 9    // Output
 1
@@ -134,7 +154,7 @@ sample2 = """
 30
 """
 
-sample3 = """
+sample3_source: str = """
 23   // line one
 15
 23   // line two 
@@ -400,7 +420,7 @@ sample3 = """
 
 """
 
-sample4 = """
+sample4_source: str = """
 .0
 1    // Load 10
 10
@@ -471,3 +491,18 @@ sample4 = """
 .1700
 0    // data 
 """
+
+program1_values: list[int] = [1, 72, 9, 2, 1, 73, 9, 2, 23, 11, 50, 1, 10, 9, 2, 24]
+sample1_values: list[int] = []
+sample2_values: list[int] = []
+sample3_values: list[int] = []
+sample4_values: list[int] = []
+
+
+samples: dict[str, tuple[str, list[int]]] = {
+    "program1": (program1_source, program1_values),
+    "sample1": (sample1_source, sample1_values),
+    "sample2": (sample2_source, sample2_values),
+    "sample3": (sample3_source, sample3_values),
+    "sample4": (sample4_source, sample4_values),
+}
