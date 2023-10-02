@@ -30,7 +30,7 @@ where it is at in the program, PC, what instruction is being executed (IR)
 and where the top of the program stack is (SP).
 
 
-### Back Track: What's a Program?
+### Backtrack: What's a Program?
 
 Programs are a list of instructions that tell the computer what
 operations to "execute" and the order to perform them in. The
@@ -113,14 +113,15 @@ behaviors depending on the stream of instructions being executed.
 
 Fetching the instruction is a read operation on memory, using the
 address stored in the PC register to determine where the read happens.
-The results of the read are stored in the IR register, which is generally
-a read-only register as far as programs are concerned.
+The results of the read are stored into the IR register, which is 
+not visible to any of the defined instructions.
 
 #### Decode 
 
-Once the instruction is available in the IR, the computer then decodes the
-opcode to determine what the instruction is and if it needs any other data
-to execute (loading an operand, switching to SYSTEM mode, etc).
+Once the instruction is available in the IR, the computer then decodes
+the opcode to determine which instruction it is and if it requires any
+other data to execute (loading an operand, switching to SYSTEM mode,
+etc).
 
 #### Execute
 
@@ -138,6 +139,11 @@ instructions also store state onto the stack to return control back to
 the instruction after the calling address (`ret` and `ireturn` perform
 these functions). The `CALL` and `RET` instructions together help
 implement what is usually called a function call.
+
+Other instructions will update the contents of various registers,
+depending on the instruction.
+
+
 
 
 #### Go Back and Do It Again
@@ -432,7 +438,38 @@ HI
 $
 ```
 
+#### Comparing Assembly to a Higher Level Language
 
-#
+To implement the following C statements for SimpleCPU:
 
-0: docs_url
+```C
+int i = 0;
+i++;
+```
+
+I would write the following assembly:
+
+```assembly
+00 loada 10  // load the value at address 10 (i) into the AC
+01 copytox   // copy the AC to the X register
+02 incx      // increment X register by 1
+03 copyfromx // copy X to the AC register
+04 store 10  // store AC to the address 10 (i)
+.10          // integer variable i
+0            // i initialized to zero
+```
+
+The C language abstracts away a lot of things for us, like naming a
+memory location 'i' and not having to know it's exact address in
+memory. In the assembly version, I had to pick an address to store my
+integer variable, so I picked 10. If my program gets more complex,
+I'll have to relocate the data to another address higher in the space
+and update all the instructions that reference 'i' with the new
+address. There is a lot of complexity to manage and it's very easy
+for bugs to creep in.
+
+
+
+
+
+[0]:https://github.com/JnyJny/SimpleCPU/tree/71465e3292e7c48bd8b6a90135ec2b5b8499e255/docs
