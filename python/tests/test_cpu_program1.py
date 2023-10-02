@@ -21,7 +21,6 @@ from .samples import sample1, sample2, sample3, sample4
 def test_assemble_program(source) -> None:
 
     assembler = Assembler(source.splitlines())
-    assembler.parse()
 
     for address, line in enumerate([line for line in source.splitlines() if len(line)]):
         value = int(line.split()[0].strip())
@@ -29,20 +28,23 @@ def test_assemble_program(source) -> None:
 
 
 @pytest.mark.parametrize(
-    "source",
+    "source,error",
     [
-        program1,
-        sample1,
-        sample2,
-        sample3,
-        sample4,
+        (program1, None),
+        (sample1, None),
+        (sample2, SegmentationFault),
+        (sample3, None),
+        (sample4, None),
     ],
 )
-def test_execute_program(source) -> None:
-    assembler = Assembler(source.splitlines())
+def test_execute_program(source, error) -> None:
 
-    assembler.parse()
+    assembler = Assembler(source.splitlines())
 
     cpu = CPU(assembler.memory)
 
-    cpu.start()
+    if error:
+        with pytest.raises(error):
+            cpu.start()
+    else:
+        cpu.start()
