@@ -54,7 +54,7 @@ class Instruction(Enum):
             if instruction.opcode == opcode:
                 return instruction
 
-        raise InvalidOpcodeError(opcode)
+        raise InvalidOpcodeError(f"{opcode=}")
 
     def __init__(
         self,
