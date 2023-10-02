@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "cpusim"
+name = "simplecpu"
 version = "0.1.0"
 description = ""
 authors = ["JnyJny <erik.oshaughnessy@gmail.com>"]
