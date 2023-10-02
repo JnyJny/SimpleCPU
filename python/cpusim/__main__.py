@@ -67,8 +67,7 @@ def assemble_source(
     dest = dest or source.with_suffix(".o").relative_to(source.parent)
 
     try:
-        assembler = Assembler(source)
-        assembler.parse()
+        assembler = Assembler.from_file(source)
         assembler.save(dest)
     except FileNotFoundError as error:
         typer.secho(f"{error.strerror}: '{error.filename}'", fg="red")
