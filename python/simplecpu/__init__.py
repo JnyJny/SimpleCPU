@@ -3,4 +3,4 @@
 
 from loguru import logger
 
-logger.disable("cpusim")
+logger.disable("simplecpu")

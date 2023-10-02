@@ -34,7 +34,7 @@ def load_and_run(
     """CPU Simulator"""
 
     for module in ["cpu", "memory"][:debug]:
-        logger.enable(f"cpusim.{module}")
+        logger.enable(f"simplecpu.{module}")
 
     memory = Memory.from_file(objectpath)
 
@@ -62,7 +62,7 @@ def assemble_source(
 ) -> None:
     """Assembler"""
 
-    (logger.enable if debug else logger.disable)("cpusim.asm")
+    (logger.enable if debug else logger.disable)("simplecpu.asm")
 
     dest = dest or source.with_suffix(".o").relative_to(source.parent)
 
@@ -82,7 +82,7 @@ def disassemble_source(
 ) -> None:
     """Disassembler"""
 
-    (logger.enable if debug else logger.disable)("cpusim.dis")
+    (logger.enable if debug else logger.disable)("simplecpu.dis")
 
     try:
         disassembler = Disassembler(objectpath)
