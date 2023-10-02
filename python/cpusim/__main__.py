@@ -12,7 +12,6 @@ from .asm import Assembler
 from .cpu import CPU
 from .dis import Disassembler
 from .memory import Memory
-from .objectfile import ObjectFile
 
 loader = typer.Typer()
 asm = typer.Typer()
@@ -34,13 +33,13 @@ def load_and_run(
 ) -> None:
     """CPU Simulator"""
 
-    for module in ["cpu", "memory", "objectfile"][:debug]:
+    for module in ["cpu", "memory"][:debug]:
         logger.enable(f"cpusim.{module}")
 
-    objectfile = ObjectFile(objectpath)
+    memory = Memory.from_file(objectpath)
 
     try:
-        cpu = CPU(objectfile.image, timer_interval=timer_interval, debug=debug)
+        cpu = CPU(memory, timer_interval=timer_interval, debug=debug)
     except Exception as error:
         print(error)
         raise typer.Exit(code=1) from None
@@ -48,7 +47,9 @@ def load_and_run(
     try:
         cpu.start()
     except Exception as error:
-        print(error)
+        if debug:
+            raise
+        print(type(error), error)
         raise typer.Exit(code=1) from None
 
 
@@ -67,6 +68,7 @@ def assemble_source(
 
     try:
         assembler = Assembler(source)
+        assembler.parse()
         assembler.save(dest)
     except FileNotFoundError as error:
         typer.secho(f"{error.strerror}: '{error.filename}'", fg="red")

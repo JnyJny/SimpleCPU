@@ -26,8 +26,11 @@ def instrument(*, registers: bool = True, memory: bool = True, stack: bool = Fal
             lgr_ = logger.opt(depth=1)
             cpu, *_ = args
             dump = cpu.dump(registers=registers, memory=memory, stack=stack)
+            instruction = cpu.instruction
+            instruction.address = cpu.pc
+            instruction.operand = cpu.operand
             try:
-                lgr_.debug("{:08}{:>16s} {:08} // {}", cpu.pc, name, cpu.operand, desc)
+                lgr_.warning("{:20} // {}", str(instruction), desc)
             except TypeError:
                 lgr_.debug("{:08}{:>16s} {:8} // {}", cpu.pc, name, "", desc)
             for line in dump.splitlines():
@@ -256,7 +259,7 @@ class CPU:
         """
 
         for instruction in self:
-            cpu.cycles += 1
+            self.cycles += 1
 
     @instrument()
     def invalid(self) -> None:

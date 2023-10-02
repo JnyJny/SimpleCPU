@@ -11,20 +11,8 @@ class BaseException(Exception):
         return f"{self.name}: {' '.join(self.args)}"
 
 
-class MemoryRangeError(BaseException):
-    """The requested address is out of range."""
-
-    pass
-
-
 class InvalidOpcodeError(BaseException):
     """The requested opcode is invalid."""
-
-    pass
-
-
-class SegmentationFault(BaseException):
-    """Access to address requires elevated permissions."""
 
     pass
 
@@ -35,14 +23,32 @@ class InvalidOperandError(BaseException):
     pass
 
 
-class StackUnderflowError(BaseException):
-    """Popping the bottom of the stack."""
+class MachineCheck(BaseException):
+    """A machine error has occurred."""
 
     pass
 
 
-class MachineCheck(BaseException):
-    """A machine error has occurred."""
+class MemoryRangeError(BaseException):
+    """The requested address is out of range."""
+
+    pass
+
+
+class ObjectFormatError(Exception):
+    """Malformed object file format."""
+
+    pass
+
+
+class SegmentationFault(BaseException):
+    """Access to address requires elevated permissions."""
+
+    pass
+
+
+class StackUnderflowError(BaseException):
+    """Popping the bottom of the stack."""
 
     pass
 
@@ -52,6 +58,7 @@ __all__ = [
     "InvalidOperandError",
     "MachineCheck",
     "MemoryRangeError",
+    "ObjectFormatError",
     "SegmentationFault",
     "StackUnderflowError",
 ]

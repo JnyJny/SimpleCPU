@@ -68,6 +68,18 @@ class Instruction(Enum):
         self.is_cti = is_cti
         self.operand_name = operand_name
         self.has_operand = operand_name is not None
+        self.operand = None
+        self.address = None
+
+    def __str__(self) -> str:
+
+        words = []
+        if self.address is not None:
+            words.append(f"{self.address:08}")
+        words.append(f"{self.name:>10}")
+        if self.operand is not None:
+            words.append(f"{self.operand:08}")
+        return " ".join(words)
 
     def __eq__(self, other) -> bool:
         if isinstance(other, int):
