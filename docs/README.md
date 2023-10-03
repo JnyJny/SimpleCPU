@@ -128,6 +128,7 @@ $ java Project1 program.txt 30
 Here are two sample programs for illustration purposes.
 
 #### Program A
+
 This program gets 3 random integers and sums them, then prints the result. 
 Note that each line only has one number.
 
@@ -171,29 +172,37 @@ procedure.
 
 ### Sample Programs
 
-#### sample1.s
+#### [sample1.s][s1]
 - Tests the indexed load instructions.
 - Prints two tables, one of A-Z, the other of 1-10.
   
-#### sample2.s
+#### [sample2.s][s2]
 - Tests the call/ret instructions.
 - Prints a face where the lines are printed using subroutine calls.
   
-#### sample3.s
+#### [sample3.s][s3]
 - Tests the int/iret instructions.
 - The main loop is printing the letter A followed by a number
 - that is being periodically incremented by the timer.
 - The number will increment faster if the timer period is shorter.
   
-#### sample4.s
+#### [sample4.s][s4]
 - Tests the proper operation of the user stack and system stack
 - Tests that accessing system memory in user mode gives an error and exits.
 	
-#### program_a.s
+#### [program_a.s][pa]
 - This program gets 3 random integers, sums them, and then prints the result. 
 
-#### program_b.s
+#### [program_b.s][pb]
 - This program prints `HI\n` to the screen.
+
+
+[s1]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/sample1.s
+[s2]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/sample2.s
+[s3]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/sample3.s
+[s4]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/sample4.s
+[pa]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/program_a.s
+[pb]: https://github.com/JnyJny/SimpleCPU/tree/main/docs/program_b.s
 
 
 
