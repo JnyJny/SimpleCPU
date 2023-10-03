@@ -432,15 +432,17 @@ The assembly language version of the program makes it clearer (for humans).
 
 Let's step thru the program line by line:
 
-- 00. The `loadv` instruction loads the value 72 into the AC register
-- 02. The `put` instruction writes the value in AC to the console as a character, 'H'
-- 04. The `loadv` instruction loads the value 73 into the AC register.
-- 06. The `put` instruction writes the value in AC to the console as a character, 'I'
-- 08. The `call` instruction pushes 10 onto the stack and sets PC to 11
-- 11. The `loadv` instruction loads the value 10 into the AC register
-- 13. The `put` instruction writes the value in AC to the console as a chacater, '\n'
-- 15. The `ret` instruction pops 10 off the stack and sets the PC to 10
-- 10. The `end` instruction causes the CPU stop execution of the program.
+|Address|Description|
+|-------|-----------|
+| 000   | The `loadv` instruction loads the value 72 into the AC register |
+| 002   | The `put` instruction writes the value in AC to the console as a character, 'H' |
+| 004   | The `loadv` instruction loads the value 73 into the AC register. |
+| 006   | The `put` instruction writes the value in AC to the console as a character, 'I' |
+| 008   | The `call` instruction pushes 10 onto the stack and sets PC to 11 |
+| 011   | The `loadv` instruction loads the value 10 into the AC register |
+| 013   | The `put` instruction writes the value in AC to the console as a chacater, '\n' |
+| 015   | The `ret` instruction pops 10 off the stack and sets the PC to 10 |
+| 010   | The `end` instruction causes the CPU stop execution of the program. |
 
 
 We could step thru the machine code version in a similar fashion, but
