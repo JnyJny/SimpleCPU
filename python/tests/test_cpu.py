@@ -5,11 +5,11 @@ import string
 
 import pytest
 
-from cpusim.cpu import CPU
-from cpusim.constants import Mode, ProgramLoad, StackBase
-from cpusim.exceptions import *
-from cpusim.instruction import Instruction
-from cpusim.memory import Memory
+from simplecpu.cpu import CPU
+from simplecpu.constants import Mode, ProgramLoad, StackBase
+from simplecpu.exceptions import *
+from simplecpu.instruction import Instruction
+from simplecpu.memory import Memory
 
 
 @pytest.fixture()

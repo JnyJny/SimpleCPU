@@ -3,8 +3,8 @@
 
 import pytest
 
-from cpusim.asm import Assembler
-from cpusim.dis import Disassembler
+from simplecpu.asm import Assembler
+from simplecpu.dis import Disassembler
 
 from .samples import samples
 

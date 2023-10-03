@@ -3,9 +3,9 @@
 
 import pytest
 
-from cpusim.cpu import CPU
-from cpusim.exceptions import *
-from cpusim.asm import Assembler
+from simplecpu.cpu import CPU
+from simplecpu.exceptions import *
+from simplecpu.asm import Assembler
 
 from .samples import samples
 

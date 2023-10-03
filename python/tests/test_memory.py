@@ -3,8 +3,8 @@
 
 import pytest
 
-from cpusim.memory import Memory, MemoryRangeError
-from cpusim.constants import NWORDS, ProgramLoad
+from simplecpu.memory import Memory, MemoryRangeError
+from simplecpu.constants import NWORDS, ProgramLoad
 
 MAX_UNSIGNED_INT = 0x7FFFFFFF
 
