@@ -140,10 +140,10 @@ the instruction after the calling address (`ret` and `ireturn` perform
 these functions). The `CALL` and `RET` instructions together help
 implement what is usually called a function call.
 
-Other instructions will update the contents of various registers,
-depending on the instruction.
-
-
+Other instructions implement simple arithmetic operations, moving
+values between registers, a variety of load instructions and printing
+values to the console. All of these instructions are representative of
+the types of instructions found in most _real_ CPU architecures. 
 
 
 #### Go Back and Do It Again
@@ -157,7 +157,7 @@ attempting to pop from an empty stack or instruction operands which
 are not recognized when decoded. Collectively, these behaviors are
 often referred to as an Abnormal End or ABEND. Reaching the END
 instruction of a program generally indicates that the program executed
-as expected.
+as expected (Alan Turing and his Halting Problem not withstanding).
 
 ### Memory and Memory Segmentation
 
@@ -268,10 +268,10 @@ instruction_t *alloc_dispatch_table(void)
     exit(EXIT_FAILURE);
   }
 
-  tbl[0]  = init_instruction(INVALID_OPCODE,    0, "Invalid",    "Invalid opcode.");
-  tbl[1]  = init_instruction(LOADV_OPCODE,      1, "LoadV",      "LoadV value: load the value into AC");
-  ...
-  tbl[50] = init_instruction(END_OPCODE,        0, "End",        "End: end execution");  
+  tbl[0]  = init_instruction(INVALID_OPCODE, 0, "Invalid", "Invalid opcode.");
+  tbl[1]  = init_instruction(LOADV_OPCODE,   1, "LoadV",   "LoadV value: load the value into AC");
+  ...										 
+  tbl[50] = init_instruction(END_OPCODE,     0, "End",     "End: end execution");
   
   return tbl;
 }
@@ -306,7 +306,7 @@ discussed above.
 
 In C, the `loadv` instruction microcode function looks like:
 
-```c
+```C
 void load_value(cpu_t *cpu)
 {
   /* Load value: Load the value into AC */
@@ -324,7 +324,7 @@ expect it to be present in other CPUs or even other versions of the
 same CPU family.
 
 The `load_value` microcode function is called with a pointer to the `cpu_t`
-where the registers of the CPU live. The decode phase has already
+structure where the registers of the CPU live. The decode phase has already
 loaded the registers with the anticipated values and it's up the
 microcode to move things around. In this case, the operand is written
 to the AC register and the function returns.
@@ -357,8 +357,8 @@ not execute on another CPU without an activity called "porting".
 
 The following is an assembly language version of program1 found in
 the problem specification:
-```
-#address   mnemonic operand
+```assembly
+;address   mnemonic operand
 00000000      loadv 00000072
 00000002        put 00000002
 00000004      loadv 00000073
@@ -371,8 +371,8 @@ the problem specification:
 ```
 
 The machine code version of program1 looks like:
-```
-Address   Opcode
+```assembly
+;Address   Opcode
 00000000       1
 00000001      72
 00000002       9
@@ -403,7 +403,7 @@ The assembly language version of the program makes it clearer (for humans).
 
 #### But What Does Program1 Do?
 
-```
+```assembly
 00000000      loadv 00000072
 00000002        put 00000002
 00000004      loadv 00000073
@@ -417,15 +417,16 @@ The assembly language version of the program makes it clearer (for humans).
 
 Let's step thru the program line by line:
 
-00. The `loadv` instruction loads the value 72 into the AC register
-02. The `put` instruction writes the value in AC to the console as a character, 'H'
-04. The `loadv` instruction loads the value 73 into the AC register.
-06. The `put` instruction writes the value in AC to the console as a character, 'I'
-08. The `call` instruction pushes 10 onto the stack and sets PC to 11
-11. The `loadv` instruction loads the value 10 into the AC register
-13. The `put` instruction writes the value in AC to the console as a chacater, '\n'
-15. The `ret` instruction pops 10 off the stack and sets the PC to 10
-10. The `end` instruction causes the CPU stop execution of the program.
+- 00. The `loadv` instruction loads the value 72 into the AC register
+- 02. The `put` instruction writes the value in AC to the console as a character, 'H'
+- 04. The `loadv` instruction loads the value 73 into the AC register.
+- 06. The `put` instruction writes the value in AC to the console as a character, 'I'
+- 08. The `call` instruction pushes 10 onto the stack and sets PC to 11
+- 11. The `loadv` instruction loads the value 10 into the AC register
+- 13. The `put` instruction writes the value in AC to the console as a chacater, '\n'
+- 15. The `ret` instruction pops 10 off the stack and sets the PC to 10
+- 10. The `end` instruction causes the CPU stop execution of the program.
+
 
 We could step thru the machine code version in a similar fashion, but
 that sort of punishment is unnecessary!
@@ -468,8 +469,14 @@ and update all the instructions that reference 'i' with the new
 address. There is a lot of complexity to manage and it's very easy
 for bugs to creep in.
 
+## Conclusion
 
+If you've gotten this far, you have my gratitude and respect! If you've
+enjoyed this article or learned something about computers, send me an
+email or open an issue to let me know! I had fun writing this article
+and these simulators and I hope it sparks a desire to know more about
+the inner lives of computers in you. 
 
-
+Erik - 2 Oct 2023
 
 [0]:https://github.com/JnyJny/SimpleCPU/tree/71465e3292e7c48bd8b6a90135ec2b5b8499e255/docs
