@@ -1,4 +1,3 @@
-
 # Problem Overview
 
 The project will simulate a simple computer system consisting of a CPU
@@ -22,8 +21,6 @@ h. Memory protection.
 i. I/O.
 j. Virtualization/emulation
 
-
-
 ## Problem Details
 
 ### CPU
@@ -41,17 +38,17 @@ j. Virtualization/emulation
   processes should end at that time.
 - The user program cannot access system memory (exits with error message).
 
-
 ### Memory
 - It will consist of 2000 integer entries:
   - 0-999 for the user program
   - 1000-1999 for system code.
-- It will support two operations:
-  - `read(address)`  returns the value at the address
-  - `write(address, data)`  writes the data to the address
+- It will support two operations; read and write:
+  - `read(address)` returns the value at the address
+  - `write(address, data)` writes the data to the address
 - Memory will read an input file containing a program into its array,
   before any CPU fetching begins.
-- Note that the memory is simply storage; it has no real logic beyond reading and writing.
+- Note that the memory is simply storage; it has no real logic beyond
+  reading and writing.
 
 
 ### Timer
@@ -60,7 +57,7 @@ j. Virtualization/emulation
 - The timer is always counting, whether in user mode or kernel mode.
 
 ### Interrupt processing
-- There are two forms of interrupts:  the timer and a system call using the int instruction.
+- There are two forms of interrupts: the timer and a system call using the int instruction.
 - In both cases the CPU should enter kernel mode.
 - The stack pointer should be switched to the system stack.
 - The SP and PC registers (and only these registers) should be saved
@@ -84,8 +81,7 @@ j. Virtualization/emulation
 | 6      | LoadSpX                | Load from (Sp+X) into the AC (if SP is 990, and X is 1, load from 991).                                                                               |
 | 7      | Store address          | Store the value in the AC into the address                                                                                                            |
 | 8      | Get                    | Gets a random int from 1 to 100 into the AC                                                                                                           |
-| 9      | Put port               | If port=1, writes AC as an int to the screen                                                                               |
-|        |                        | If port=2, writes AC as a char to the screen                                                                                                          |
+| 9      | Put port               | If port=1, write AC as an int to the screen. If port=2, write AC as a char to the screen.                                                        |
 | 10     | AddX                   | Add the value in X to the AC                                                                                                                          |
 | 11     | AddY                   | Add the value in Y to the AC                                                                                                                          |
 | 12     | SubX                   | Subtract the value in X from the AC                                                                                                                   |
@@ -110,10 +106,94 @@ j. Virtualization/emulation
 | 50     | End                    | End execution                                                                                                                                         |
    									 
 
+### Input File Format
+
+- Each instruction is on a separate line, with its operand (if any) on the following line.
+- The instruction or operand may be followed by a comment which the loader will ignore.
+- Anything following an integer is a comment, whether or not it begins with //.
+- A line may be blank in which case the loader will skip it without advancing the load address.
+- A line may begin by a period followed by a number which causes the loader to change the load address.
+- Your program should run correctly with the any valid input files.
 
 
+### Sample Programs
 
+The input program filename and timer interrupt value should be command
+line arguments, for example:
 
+```console
+$ java Project1 program.txt 30
+```
+
+Here are two sample programs for illustration purposes.
+
+#### Program A
+This program gets 3 random integers and sums them, then prints the result. 
+Note that each line only has one number.
+
+```assembly
+       8   // Get 
+      14   // CopyToX
+       8   // Get
+      16   // CopyToY
+       8   // Get
+      10   // AddX
+      11   // AddY
+       9   // Put 1
+       1
+      50   // End
+```
+
+#### Program B
+
+This program prints HI followed by a newline to the screen.  To
+demonstrate a procedure call, the newline is printed by calling a
+procedure.
+
+```assembly
+       1   // Load 72=H
+      72
+       9   // Put 2
+       2
+       1   // Load 73=I
+      73
+       9   // Put 2
+       2
+      23   // Call 11
+      11
+      50   // End 
+       1   // Load 10=newline
+      10 
+       9   // Put 2
+       2
+      24   // Return
+```
+
+### Sample Programs
+
+#### sample1.s
+- Tests the indexed load instructions.
+- Prints two tables, one of A-Z, the other of 1-10.
+  
+#### sample2.s
+- Tests the call/ret instructions.
+- Prints a face where the lines are printed using subroutine calls.
+  
+#### sample3.s
+- Tests the int/iret instructions.
+- The main loop is printing the letter A followed by a number
+- that is being periodically incremented by the timer.
+- The number will increment faster if the timer period is shorter.
+  
+#### sample4.s
+- Tests the proper operation of the user stack and system stack
+- Tests that accessing system memory in user mode gives an error and exits.
+	
+#### program_a.s
+- This program gets 3 random integers, sums them, and then prints the result. 
+
+#### program_b.s
+- This program prints `HI\n` to the screen.
 
 
 
