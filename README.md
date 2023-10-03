@@ -20,6 +20,8 @@ the registers back to memory. Memory in this implementation is an
 array of signed integer values that exist in a small linear address
 space of 2000 words.
 
+
+
 ### Registers
 
 Most computer architectures have a few registers in common. They may
@@ -92,6 +94,19 @@ a loop that does the following things:
 2. Decode the instruction
 3. Execute the instruction
 4. Go back to 1.
+
+```mermaid
+flowchart LR
+    Memory -->|R| CPU
+    CPU --> |W| Memory
+
+    subgraph CPU
+        Execute --> Fetch
+        Fetch --> Decode
+        Decode --> Execute
+    end
+```
+
 
 Typically, each of these steps would take place on the ticking of the
 CPU clock which is an electrical signal distributed throughout the
@@ -297,8 +312,8 @@ either implmentation, it's invoked to "execute" the instruction.
 
 Once the instruction is decoded, it's time to execute the little
 program that implements the instruction. This little program is often
-called "microcode" and I've referred to the functions and methods that
-implement the SimpleCPU architecture's instruction set as "microcode"
+called microcode and I've referred to the functions and methods that
+implement the SimpleCPU architecture's instruction set as microcode
 in both C and Python. In C, each entry in the dispatch table has a
 pointer to the function that implements the instruction. In Python,
 the `CPU` class has methods that implement the instructions as
@@ -325,7 +340,7 @@ same CPU family.
 
 The `load_value` microcode function is called with a pointer to the `cpu_t`
 structure where the registers of the CPU live. The decode phase has already
-loaded the registers with the anticipated values and it's up the
+loaded the registers with the anticipated values and it's up to the
 microcode to move things around. In this case, the operand is written
 to the AC register and the function returns.
 
@@ -345,7 +360,7 @@ with a `self` that is an instance of the CPU class. The function moves
 the value in `operand` into the `AC` register and returns, just like
 its C function counterpart.
 
-### Program 1: Assembly Language and Machine Code
+### Program B: Assembly Language and Machine Code
 
 Loosely speaking, machine code is the raw program information
 (instructions and data) that a CPU will execute. Assembly language is
@@ -355,7 +370,7 @@ a more human-friendly representation of machine code that can be
 machine architecture, so programs written in assembly for one CPU will
 not execute on another CPU without an activity called "porting".
 
-The following is an assembly language version of program1 found in
+The following is an assembly language version of program_b found in
 the problem specification:
 ```assembly
 ;address   mnemonic operand
@@ -401,7 +416,7 @@ at address 00000001 but it's unclear if that value is an opcode or an operand.
 
 The assembly language version of the program makes it clearer (for humans).
 
-#### But What Does Program1 Do?
+#### But What Does Program B Do?
 
 ```assembly
 00000000      loadv 00000072
@@ -434,7 +449,7 @@ that sort of punishment is unnecessary!
 Running the program with the C version of the simulator would look like this:
 
 ```console
-$ ./loader -f program1.o
+$ ./loader -f program_b.o
 HI
 $
 ```
@@ -475,7 +490,7 @@ If you've gotten this far, you have my gratitude and respect! If you've
 enjoyed this article or learned something about computers, send me an
 email or open an issue to let me know! I had fun writing this article
 and these simulators and I hope it sparks a desire to know more about
-the inner lives of computers in you. 
+the inner lives of computers. 
 
 Erik - 2 Oct 2023
 
