@@ -479,4 +479,5 @@ the inner lives of computers in you.
 
 Erik - 2 Oct 2023
 
-[0]:https://github.com/JnyJny/SimpleCPU/tree/71465e3292e7c48bd8b6a90135ec2b5b8499e255/docs
+[0]:https://github.com/JnyJny/SimpleCPU/tree/main/docs
+
