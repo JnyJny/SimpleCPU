@@ -42,5 +42,4 @@ class StackBase(int, Enum):
 
 NWORDS: int = StackBase.for_mode(Mode.SYSTEM).value + 1
 
-# MAGIC: int = 0x6F6A6521
-MAGIC: int = 0x21656A6F
+MAGIC: int = int.from_bytes(b"%ejo")
