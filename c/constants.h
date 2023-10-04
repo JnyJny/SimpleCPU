@@ -40,7 +40,7 @@ typedef struct {
 
 #define CONSOLE stderr
 
-#define MAGIC 0x6f6a6521
+#define MAGIC 0x25656a6f
 
 #define SYMSZ 16		/* length of a symbol */
 
