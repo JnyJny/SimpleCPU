@@ -2,7 +2,9 @@
 """
 
 
+from dataclasses import dataclass
 from pathlib import Path
+from sys import stdout, stderr
 
 import typer
 
@@ -12,17 +14,41 @@ from .asm import Assembler
 from .cpu import CPU
 from .dis import Disassembler
 from .memory import Memory
-
-loader = typer.Typer()
-asm = typer.Typer()
-dis = typer.Typer()
+from .exceptions import ObjectFormatError
 
 
-@loader.command()
+cli = typer.Typer()
+
+
+@dataclass
+class GlobalOptions:
+    debug: bool = False
+
+
+@cli.callback()
+def main_callback(
+    ctx: typer.Context,
+    debug: bool = typer.Option(False, "--debug", "-d", is_flag=True),
+) -> None:
+    """A SimpleCPU Simulator"""
+
+    (logger.enable if debug else logger.disable)("simplecpu")
+    ctx.ensure_object(GlobalOptions)
+    ctx.obj.debug = debug
+
+    logger.remove()
+    logger.add(
+        stdout,
+        format="<green>{time}</green>:<level>{level:>8}</level>:{message}",
+        colorize=True,
+        level="TRACE",
+    )
+
+
+@cli.command(name="run")
 def load_and_run(
     ctx: typer.Context,
-    objectpath: Path,
-    debug: int = typer.Option(False, "--debug", "-D", count=True),
+    path: Path,
     timer_interval: int = typer.Option(
         100,
         "--timer-interval",
@@ -33,13 +59,13 @@ def load_and_run(
 ) -> None:
     """CPU Simulator"""
 
-    for module in ["cpu", "memory"][:debug]:
-        logger.enable(f"simplecpu.{module}")
-
-    memory = Memory.from_file(objectpath)
+    try:
+        memory = Memory.from_file(path)
+    except ObjectFormatError:
+        memory = Assembler.from_file(path).memory
 
     try:
-        cpu = CPU(memory, timer_interval=timer_interval, debug=debug)
+        cpu = CPU(memory, timer_interval=timer_interval, debug=ctx.obj.debug)
     except Exception as error:
         print(error)
         raise typer.Exit(code=1) from None
@@ -47,22 +73,17 @@ def load_and_run(
     try:
         cpu.start()
     except Exception as error:
-        if debug:
-            raise
-        print(type(error), error)
+        typer.secho(error, fg="red")
         raise typer.Exit(code=1) from None
 
 
-@asm.command()
+@cli.command(name="asm")
 def assemble_source(
     ctx: typer.Context,
     source: Path,
     dest: Path = typer.Option(None, "--output", "-o"),
-    debug: bool = typer.Option(False, "--debug", "-D", is_flag=True),
 ) -> None:
     """Assembler"""
-
-    (logger.enable if debug else logger.disable)("simplecpu.asm")
 
     dest = dest or source.with_suffix(".o").relative_to(source.parent)
 
@@ -74,15 +95,12 @@ def assemble_source(
         raise typer.Exit(code=1)
 
 
-@dis.command()
+@cli.command(name="dis")
 def disassemble_source(
     ctx: typer.Context,
     objectpath: Path,
-    debug: bool = typer.Option(False, "--debug", "-D", is_flag=True),
 ) -> None:
     """Disassembler"""
-
-    (logger.enable if debug else logger.disable)("simplecpu.dis")
 
     try:
         disassembler = Disassembler(objectpath)
