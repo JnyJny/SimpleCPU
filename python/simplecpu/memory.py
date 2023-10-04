@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import functools
+
 from array import array
+
 from pathlib import Path
 from struct import unpack
 
@@ -11,6 +14,12 @@ from loguru import logger
 
 from .constants import NWORDS, ProgramLoad, MAGIC
 from .exceptions import MemoryRangeError, ObjectFormatError
+
+logger.level("READ", no=9, color="<cyan>")
+logger.level("WRITE", no=9, color="<magenta>")
+
+logger.read = functools.partial(logger.log, "READ")
+logger.write = functools.partial(logger.log, "WRITE")
 
 
 class Memory:
@@ -115,7 +124,7 @@ class Memory:
 
         value = self.words[address]
 
-        logger.debug(f"read request {address=} -> {value=}")
+        logger.read(f"{address=} {value=}")
 
         return value
 
@@ -125,7 +134,7 @@ class Memory:
         Raises:
         - MemoryRangeError
         """
-        logger.debug(f"write request {address=} {value=}")
+        logger.write(f"{address=} {value=}")
 
         if address not in self.bounds:
             outofbounds = MemoryRangeError(f"{address} not in {self.bounds}")
