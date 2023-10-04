@@ -4,6 +4,9 @@
 
 class BaseException(Exception):
     def __init__(self, *args, **kwds) -> None:
+
+        args = [str(arg) for arg in args]
+
         super().__init__(*args, **kwds)
         self.name = self.__class__.__name__
 
