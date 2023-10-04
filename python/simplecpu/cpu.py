@@ -163,12 +163,9 @@ class CPU:
         if self.sp >= stackbase:
             raise StackUnderflowError(self.sp, self.mode)
 
-        try:
-            value = self._load(self.sp)
-            self.sp += 1
-            return value
-        except MemoryRangeError:
-            raise StackUnderflowError(self.sp, self.mode) from None
+        value = self._load(self.sp)
+        self.sp += 1
+        return value
 
     def __iter__(self) -> CPU:
         self.reset()
