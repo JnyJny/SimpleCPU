@@ -1,4 +1,4 @@
-# Simple CPU Simulator Implemented in C
+# SimpleCPU Simulator Implemented in C
 
 ## Building
 
