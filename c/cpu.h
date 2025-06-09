@@ -1,7 +1,7 @@
 /* cpu.h (ejo@ufo)  7 Sep 23  Modified:  7 Sep 23  17:29 */
 
-#ifndef USER_H
-#define USER_H
+#ifndef CPU_H
+#define CPU_H
 
 #include "constants.h"
 #include "instruction.h"
@@ -73,7 +73,6 @@ typedef struct {
 #define r_control    registers.control.value
 #define r_error      registers.error.value
 
-
 #define c_mode       registers.control.fields.mode
 #define c_interrupts registers.control.fields.interrupts
 #define c_debug      registers.control.fields.debug
@@ -95,4 +94,4 @@ typedef struct {
 #define TAKE_TIMER_INTERRUPT(CPU) ((CPU)->r_cycles && (CPU)->timer_interval && (((CPU)->r_cycles %(CPU)->timer_interval) == 0))
 
 
-#endif	/* USER_H */
+#endif	/* CPU_H */
