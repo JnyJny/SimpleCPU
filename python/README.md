@@ -2,18 +2,17 @@
 
 ## Install
 
-To install and use the SimpleCPU simulator written in Python,
-you'll need to clone the repo and use the [poetry][0] tool
-to install it into a virtual environment.
+To install and use the SimpleCPU simulator written in Python, you'll
+need to clone the repo and use the [uv][0] tool to create a virtual
+environment and install the project into it.
 
 ```console
 $ git clone http://github.com/JnyJny/SimpleCPU.git
 $ cd SimpleCPU/python
-$ poetry shell
-<VE> $ poetry install
-...
-<VE> $ pasm ../docs/program_a.s
-<VE> $ pdis program_a.o
+$ uv venv
+$ uv sync
+$ simplecpu asm ../docs/program_a.s
+$ simplecpu dis program_a.o
 00000000        get
 00000001    copytox
 00000002        get
@@ -23,7 +22,7 @@ $ poetry shell
 00000006       addy
 00000007        put 00000001
 00000009        end
-<VE> $ prun program_a.o
+$ simplecpu run program_a.o
 202
 ```
 
@@ -31,15 +30,16 @@ $ poetry shell
 
 ### simplecpu asm - Assembler
 
-The `pasm` command will take SimpleCPU assembly (or text machine code representations)
-and assemble them into a binary format. 
+The `asm` subcommand will take SimpleCPU assembly (or text machine
+code representations) and assemble them into a binary format.
 
 ### simplecpu dis - Disassembler
 
-The `pdis` command will print an textual assembly language representation of an
-assembled file in binary format. 
+The `dis` subcommand will print an textual assembly language
+representation of an assembled file in binary format.
 
 ### simplecpu run - Run a Program
 
+TBD
 
-[0]: https://python-poetry.org/docs/
+[0]: https://github.com/astral-sh/uv
