@@ -1,23 +1,54 @@
-[tool.poetry]
+[project]
 name = "simplecpu"
 version = "0.1.0"
-description = ""
-authors = ["JnyJny <erik.oshaughnessy@gmail.com>"]
+description = "A Simple CPU simulator [python edition]"
 readme = "README.md"
+authors = [
+    { name = "JnyJny", email = "erik.oshaughnessy@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "loguru>=0.7.3",
+    "pytest>=8.4.0",
+    "typer>=0.16.0",
+]
 
-[tool.poetry.scripts]
-simplecpu="simplecpu.__main__:cli"
+[project.urls]
+Documentation = "https://github.com/JnyJny/SimpleCPU#readme"
+Issues = "https://github.com/JnyJny/SimpleCPU/issues"
+Source = "https://github.com/JnyJny/SimpleCPU"
 
-[tool.poetry.dependencies]
-python = "^3.11"
-loguru = "^0.7.2"
-typer = "^0.9.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.2"
-poethepoet = "^0.24.0"
-black = "^23.9.1"
+[project.scripts]
+simplecpu = "simplecpu.__main__:cli"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/simplecpu" ]
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.35.0",
+    "pytest>=8.4.0",
+    "ruff>=0.11.13",
+]
+
+[tool.ruff]
+fix = true
+lint.select = [ "I" ]
+
+[tool.poe.tasks]
+
+ruff-check.cmd = "ruff check src/{{ cookiecutter.package_name }} tests"
+ruff-check.help = "Run ruff check on source. [Code Quality]"
+
+ruff-format.cmd = "ruff format src tests"
+ruff-format.help = "Run ruff format on source. [Code Quality]"
+
+ruff.sequence = ["ruff-check", "ruff-format"]
+ruff.help = "Run Ruff check and format on source. [Code Quality]"
+
+check.sequence = ["ruff" ]
+check.help = "Run all code quality tools on source."
