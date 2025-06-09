@@ -14,17 +14,19 @@ from .instruction import Instruction
 from .memory import Memory
 
 
-logger.level("REGISTERS", no=10, color="<green>")
-logger.level("MEMORY", no=10, color="<blue>")
-logger.level("INSTRUCTION", no=10, color="<red>")
 logger.level("CONSOLE", no=10, color="<black>")
+logger.level("INSTRUCTION", no=10, color="<GREEN>")
+logger.level("MEMORY", no=10, color="<blue>")
+logger.level("REGISTERS", no=10, color="<green>")
 logger.level("STACK", no=10, color="<yellow>")
+logger.level("TIMER", no=10, color="<RED>")
 
-logger.registers = functools.partial(logger.log, "REGISTERS")
-logger.memory = functools.partial(logger.log, "MEMORY")
-logger.stack = functools.partial(logger.log, "STACK")
-logger.instruction = functools.partial(logger.log, "INSTRUCTION")
 logger.console = functools.partial(logger.log, "CONSOLE")
+logger.instruction = functools.partial(logger.log, "INSTRUCTION")
+logger.memory = functools.partial(logger.log, "MEMORY")
+logger.registers = functools.partial(logger.log, "REGISTERS")
+logger.stack = functools.partial(logger.log, "STACK")
+logger.timer = functools.partial(logger.log, "TIMER")
 
 
 class CPU:
@@ -160,7 +162,7 @@ class CPU:
         """
         stackbase = StackBase.for_mode(self.mode)
 
-        if self.sp >= stackbase:
+        if self.sp > stackbase:
             raise StackUnderflowError(self.sp, self.mode)
 
         value = self._load(self.sp)
@@ -416,6 +418,8 @@ class CPU:
 
         self.pc = program_load.value
 
+        logger.timer(f"C {self.pc=:08} {self.sp=:08} <- {u_pc=:08} {u_sp=:08}")
+
     def ireturn(self) -> None:
         """Return from a system call.
 
@@ -424,10 +428,14 @@ class CPU:
         Enable interrupts
         Switch mode to USER
         """
+        s_pc = self.pc
+        s_sp = self.sp
+
         self.pc = self._pop()
         self.sp = self._pop()
         self.interrupts_enabled = True
         self.mode = Mode.USER
+        logger.timer(f"R {self.pc=:08} {self.sp=:08} <- {s_pc=:08} {s_sp=:08}")
 
     def end(self) -> None:
         """Stop executing instructions.
