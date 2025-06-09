@@ -11,6 +11,7 @@ $ git clone http://github.com/JnyJny/SimpleCPU.git
 $ cd SimpleCPU/python
 $ uv venv
 $ uv sync
+$ source .venv/bin/activate
 $ simplecpu asm ../docs/program_a.s
 $ simplecpu dis program_a.o
 00000000        get
