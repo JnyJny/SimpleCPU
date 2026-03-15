@@ -162,7 +162,7 @@ class CPU:
         """
         stackbase = StackBase.for_mode(self.mode)
 
-        if self.sp > stackbase:
+        if self.sp >= stackbase:
             raise StackUnderflowError(self.sp, self.mode)
 
         value = self._load(self.sp)
