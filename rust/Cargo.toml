@@ -1,0 +1,11 @@
+[package]
+name = "simplecpu"
+version = "0.1.0"
+edition = "2024"
+description = "A simple CPU simulator"
+repository = "https://github.com/JnyJny/simplecpu"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rand = "0.9"
+thiserror = "2"
