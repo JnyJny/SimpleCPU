@@ -25,6 +25,9 @@ pub const Cpu = struct {
     // Output
     stdout: std.fs.File,
 
+    // Random Number Generation
+    prng: std.Random.DefaultPrng,
+
     pub fn init(memory: Memory, timer_interval: usize) Cpu {
         return .{
             .memory = memory,
@@ -39,6 +42,7 @@ pub const Cpu = struct {
             .cycles = 0,
             .interrupts_enabled = true,
             .stdout = std.fs.File{ .handle = std.posix.STDOUT_FILENO },
+            .prng = std.Random.DefaultPrng.init(0),
         };
     }
 
@@ -145,15 +149,34 @@ pub const Cpu = struct {
                 const addr = try self.load(@intCast(operand.?));
                 self.ac = try self.load(@intCast(addr));
             },
-            .loadx => @panic("TODO: load value at address + X into AC"),
-            .loady => @panic("TODO: load value at address + Y into AC"),
-            .loadspx => @panic("TODO: load value at SP + X into AC"),
+            .loadx => {
+                //@panic("TODO: load value at address + X into AC"),
+                const addr = self.x + operand.?;
+                self.ac = try self.load(@intCast(addr));
+            },
+            .loady => {
+                //@panic("TODO: load value at address + Y into AC"),
+                const addr = self.y + operand.?;
+                self.ac = try self.load(@intCast(addr));
+            },
+            .loadspx => {
+                //@panic("TODO: load value at SP + X into AC"),
+                const addr = self.sp +% @as(usize, @intCast(self.x));
+                self.ac = try self.load(@intCast(addr));
+            },
 
             // === STORE ===
-            .store => @panic("TODO: store AC to address"),
+            .store => {
+                // @panic("TODO: store AC to address"),
+                const addr = @as(usize, @intCast(operand.?));
+                try self.store(addr, self.ac);
+            },
 
             // === I/O ===
-            .get => @panic("TODO: random int 1-100 into AC"),
+            .get => {
+                //@panic("TODO: random int 1-100 into AC"),
+                self.ac = self.prng.random().intRangeAtMost(i32, 1, 100);
+            },
             .put => {
                 // port 1 = integer, port 2 = character
                 const port = operand.?;
@@ -165,33 +188,95 @@ pub const Cpu = struct {
             },
 
             // === ARITHMETIC ===
-            .addx => @panic("TODO: add X to AC"),
-            .addy => @panic("TODO: add Y to AC"),
-            .subx => @panic("TODO: subtract X from AC"),
-            .suby => @panic("TODO: subtract Y from AC"),
-
+            .addx => {
+                //@panic("TODO: add X to AC"),
+                self.ac += self.x;
+            },
+            .addy => {
+                //@panic("TODO: add Y to AC"),
+                self.ac += self.y;
+            },
+            .subx => {
+                //@panic("TODO: subtract X from AC"),
+                self.ac -= self.x;
+            },
+            .suby => {
+                //@panic("TODO: subtract Y from AC"),
+                self.ac -= self.y;
+            },
             // === REGISTER COPIES ===
-            .copytox => @panic("TODO: copy AC to X"),
-            .copyfromx => @panic("TODO: copy X to AC"),
-            .copytoy => @panic("TODO: copy AC to Y"),
-            .copyfromy => @panic("TODO: copy Y to AC"),
-            .copytosp => @panic("TODO: copy AC to SP"),
-            .copyfromsp => @panic("TODO: copy SP to AC"),
-
+            .copytox => {
+                //@panic("TODO: copy AC to X"),
+                self.x = self.ac;
+            },
+            .copyfromx => {
+                //@panic("TODO: copy X to AC"),
+                self.ac = self.x;
+            },
+            .copytoy => {
+                //@panic("TODO: copy AC to Y"),
+                self.y = self.ac;
+            },
+            .copyfromy => {
+                //@panic("TODO: copy Y to AC"),
+                self.ac = self.y;
+            },
+            .copytosp => {
+                //@panic("TODO: copy AC to SP"),
+                self.sp = @intCast(self.ac);
+            },
+            .copyfromsp => {
+                //@panic("TODO: copy SP to AC"),
+                self.ac = @intCast(self.sp);
+            },
             // === CONTROL FLOW ===
             .jump => {
                 self.pc = @intCast(operand.?);
             },
-            .jumpeq => @panic("TODO: jump if AC == 0, else pc += 2"),
-            .jumpne => @panic("TODO: jump if AC != 0, else pc += 2"),
-            .call => @panic("TODO: push return addr (pc+2), jump to operand"),
-            .ret => @panic("TODO: pop return addr, jump to it"),
+            .jumpeq => {
+                //@panic("TODO: jump if AC == 0, else pc += 2"),
+                if (self.ac == 0) {
+                    self.pc = @intCast(operand.?);
+                } else {
+                    self.pc += 2;
+                }
+            },
+            .jumpne => {
+                //@panic("TODO: jump if AC != 0, else pc += 2"),
+                if (self.ac != 0) {
+                    self.pc = @intCast(operand.?);
+                } else {
+                    self.pc += 2;
+                }
+            },
+            .call => {
+                //@panic("TODO: push return addr (pc+2), jump to operand"),
+                try self.push(@intCast(self.pc));
+                self.pc = @intCast(operand.?);
+            },
+            .ret => {
+                //@panic("TODO: pop return addr, jump to it"),
+                const addr = try self.pop();
+                self.pc = @intCast(addr);
+            },
 
             // === STACK ===
-            .incx => @panic("TODO: increment X"),
-            .decx => @panic("TODO: decrement X"),
-            .push => @panic("TODO: push AC onto stack"),
-            .pop => @panic("TODO: pop stack into AC"),
+            .incx => {
+                //@panic("TODO: increment X"),
+                self.x += 1;
+            },
+            .decx => {
+                //@panic("TODO: decrement X"),
+                self.x -= 1;
+            },
+            .push => {
+                //@panic("TODO: push AC onto stack"),
+                try self.push(@intCast(self.ac));
+            },
+            .pop => {
+                //@panic("TODO: pop stack into AC"),
+                self.ac = try self.pop();
+            },
 
             // === INTERRUPTS ===
             .interrupt => {
